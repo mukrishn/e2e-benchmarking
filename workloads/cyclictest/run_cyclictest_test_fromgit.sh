@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-export WORKLOAD=oslat
+export WORKLOAD=cyclictest
 
 source ./common.sh
 
 deploy_workload
-#wait_for_benchmark
-#assign_uuid
+wait_for_benchmark
+assign_uuid
 #run_benchmark_comparison
-#print_uuid
+print_uuid
 #generate_csv
+delete_benchmark
 
 if [[ ${ENABLE_SNAPPY_BACKUP} == "true" ]] ; then
  echo -e "snappy server as backup enabled"
@@ -18,7 +19,7 @@ if [[ ${ENABLE_SNAPPY_BACKUP} == "true" ]] ; then
  cp $csv_list ./files_list
  tar -zcvf snappy_files.tar.gz ./files_list
 
- export workload=oslat_test
+ export workload=cyclictest_test
 
  export snappy_path="$SNAPPY_USER_FOLDER/$runid$platform-$cluster_version-$network_type/$workload/$folder_date_time/"
  generate_metadata > metadata.json  
@@ -27,4 +28,4 @@ if [[ ${ENABLE_SNAPPY_BACKUP} == "true" ]] ; then
  store_on_elastic
  rm -rf files_list
 fi
-echo -e "${bold}Finished workload run_oslat_test_fromgit.sh"
+echo -e "${bold}Finished workload run_cyclictest_test_fromgit.sh"

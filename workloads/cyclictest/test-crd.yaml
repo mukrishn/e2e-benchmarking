@@ -1,19 +1,17 @@
----
-
 apiVersion: ripsaw.cloudbulldozer.io/v1alpha1
 kind: Benchmark
 metadata:
-  name: oslat
+  name: cyclictest
   namespace: benchmark-operator
 spec:
   elasticsearch:
-    server: <ES_SERVER>
+    server: https://search-perfscale-dev-chmf5l4sh66lvxbnadi4bznl3a.us-west-2.es.amazonaws.com:443
   workload:
-    name: "oslat"
+    name: "cyclictest"
     args:
-      runtime: "1m"
+      duration: "1m"
       disable_cpu_balance: true
-      use_taskset: true
+      stressng: false
       pod:
         requests:
           memory: "200Mi"
