@@ -29,7 +29,7 @@ check_cluster_health() {
 export_defaults() {
   operator_repo=${OPERATOR_REPO:=https://github.com/cloud-bulldozer/benchmark-operator.git}
   operator_branch=${OPERATOR_BRANCH:=master}
-  CRD=${CRD:-ripsaw-uperf-crd.yaml}
+  CRD=${CRD:-ripsaw-oslat-crd.yaml}
   export _es=${ES_SERVER:-https://search-perfscale-dev-chmf5l4sh66lvxbnadi4bznl3a.us-west-2.es.amazonaws.com:443}
   _es_baseline=${ES_SERVER_BASELINE:-https://search-perfscale-dev-chmf5l4sh66lvxbnadi4bznl3a.us-west-2.es.amazonaws.com:443}
   export _metadata_collection=${METADATA_COLLECTION:=true}
@@ -152,7 +152,7 @@ deploy_operator() {
 }
 
 deploy_workload() {
-  log "Deploying uperf benchmark"
+  log "Deploying oslat benchmark"
   envsubst < $CRD | oc apply -f -
   log "Sleeping for 60 seconds"
   sleep 60
@@ -180,19 +180,19 @@ wait_for_benchmark() {
       log "Cerberus status is False, Cluster is unhealthy"
       exit 1
     fi
-    oc describe -n benchmark-operator benchmarks/uperf-benchmark-${WORKLOAD}-network-${pairs} | grep State | grep Complete
+    oc describe -n benchmark-operator benchmarks/oslat-benchmark | grep State | grep Complete
     if [ $? -eq 0 ]; then
-      log "uperf workload done!"
-      uperf_state=$?
+      log "oslat workload done!"
+      oslat_state=$?
       break
     fi
     update
-    log "Current status of the uperf ${WORKLOAD} benchmark with ${uline}${benchmark_current_pair} pair/s is ${uline}${benchmark_state}${normal}"
+    log "Current status of the oslat ${WORKLOAD} benchmark with ${uline}${benchmark_current_pair} pair/s is ${uline}${benchmark_state}${normal}"
     check_logs_for_errors
     sleep 30
   done
 
-  if [ "$uperf_state" == "1" ] ; then
+  if [ "$oslat_state" == "1" ] ; then
     log "Workload failed"
     exit 1
   fi
