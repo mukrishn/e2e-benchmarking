@@ -74,27 +74,29 @@ deploy_operator() {
 
 deploy_workload() {
   log "Deploying oslat benchmark"
-  envsubst < $CRD | oc apply -f -
-  log "Sleeping for 60 seconds"
-  sleep 60
+  echo $CRD
+  #envsubst < $CRD | oc apply -f -
+  envsubst < $CRD > /tmp/crd.yaml
+  #log "Sleeping for 60 seconds"
+  #sleep 60
 }
 
 wait_for_benchmark() {
-  uperf_state=1
+  oslat_state=1
   for i in {1..480}; do # 2hours
     update
     if [ "${benchmark_state}" == "Error" ]; then
       log "Cerberus status is False, Cluster is unhealthy"
       exit 1
     fi
-    oc describe -n benchmark-operator benchmarks/oslat-benchmark | grep State | grep Complete
+    oc describe -n benchmark-operator benchmarks/oslat | grep State | grep Complete
     if [ $? -eq 0 ]; then
       log "oslat workload done!"
       oslat_state=$?
       break
     fi
     update
-    log "Current status of the oslat ${WORKLOAD} benchmark with ${uline}${benchmark_current_pair} pair/s is ${uline}${benchmark_state}${normal}"
+    log "Current status of the oslat ${WORKLOAD} benchmark is ${uline}${benchmark_state}${normal}"
     check_logs_for_errors
     sleep 30
   done
@@ -105,4 +107,22 @@ wait_for_benchmark() {
   fi
 }
 
+init_cleanup() {
+  log "Cloning benchmark-operator from branch ${operator_branch} of ${operator_repo}"
+  rm -rf /tmp/benchmark-operator
+  git clone --single-branch --branch ${operator_branch} ${operator_repo} /tmp/benchmark-operator --depth 1
+  oc delete -f /tmp/benchmark-operator/deploy
+  oc delete -f /tmp/benchmark-operator/resources/crds/ripsaw_v1alpha1_ripsaw_crd.yaml
+  oc delete -f /tmp/benchmark-operator/resources/operator.yaml
+}
 
+export TERM=screen-256color
+bold=$(tput bold)
+uline=$(tput smul)
+normal=$(tput sgr0)
+python3 -m pip install -r requirements.txt | grep -v 'already satisfied'
+check_cluster_present
+export_defaults
+init_cleanup
+check_cluster_health
+deploy_operator
