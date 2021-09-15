@@ -269,9 +269,9 @@ normal=$(tput sgr0)
 python3 -m pip install -r requirements.txt | grep -v 'already satisfied'
 check_cluster_present
 export_defaults
-#init_cleanup
+init_cleanup
 check_cluster_health
 deploy_perf_profile
-#deploy_operator
+deploy_operator
 deploy_workload
 
