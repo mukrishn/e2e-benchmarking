@@ -78,7 +78,7 @@ deploy_perf_profile() {
     worker_count=0
     oslat_workers=()
     #workers=$(oc get bmh -n openshift-machine-api | grep worker | awk '{print $1}')
-    workers=$(oc get nodes | grep worker | awk '{print $1}')
+    workers=$(oc get nodes | grep ^worker | awk '{print $1}')
     until [ $worker_count -eq 2 ]; do
       for worker in $workers; do
         #worker_ip=$(oc get bmh $worker -n openshift-machine-api -o go-template='{{range .status.hardware.nics}}{{.name}}{{" "}}{{.ip}}{{"\n"}}{{end}}' | grep 192)
