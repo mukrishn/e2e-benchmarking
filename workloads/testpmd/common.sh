@@ -83,7 +83,6 @@ deploy_perf_profile() {
     workers=$(oc get nodes | grep worker | awk '{print $1}')
     until [ $worker_count -eq 2 ]; do
       for worker in $workers; do
-	echo worker $worker
         #worker_ip=$(oc get bmh $worker -n openshift-machine-api -o go-template='{{range .status.hardware.nics}}{{.name}}{{" "}}{{.ip}}{{"\n"}}{{end}}' | grep 192)
 	worker_ip=$(oc get node $worker -o json | jq -r ".status.addresses[0].address" | grep 192 )
         if [[ ! -z "$worker_ip" ]]; then 
@@ -166,12 +165,11 @@ deploy_operator() {
 
 deploy_workload() {
   log "Exporting the nodes for testpmd and trex pods"
-  echo WORKERS
   export PIN_TESTPMD=${testpmd_workers[0]}
   export PIN_TREX=${testpmd_workers[1]}
   log "Deploying testpmd benchmark"
-  #envsubst < $CRD | oc apply -f -
-  envsubst < $CRD > /tmp/testpmd.yaml
+  envsubst < $CRD | oc apply -f -
+  #envsubst < $CRD > /tmp/testpmd.yaml
   exit
   log "Sleeping for 60 seconds"
   sleep 60
