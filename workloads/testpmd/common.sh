@@ -130,7 +130,7 @@ deploy_perf_profile() {
     sleep 60
     readycount=$(oc get mcp worker-rt --no-headers | awk '{print $7}')
     while [[ $readycount -ne 2 ]]; do
-      log "Waiting for -rt nodes to become ready again, sleeping 1 minute"
+      log "Waiting for -rt nodes to become ready again after the performance-profile has been deployed, sleeping 1 minute"
       sleep 60
       readycount=$(oc get mcp worker-rt --no-headers | awk '{print $7}')
     done
@@ -141,6 +141,16 @@ deploy_perf_profile() {
     log "Could't create the network node policy, exiting!"
     exit 1
   fi
+  # we need to wait for the second reboot
+  log "Sleeping for 60 seconds"
+  sleep 60
+  readycount=$(oc get mcp worker-rt --no-headers | awk '{print $7}')
+  while [[ $readycount -ne 2 ]]; do
+    log "Waiting for -rt nodes to become ready again after the sriov-network-policy has been deployed, sleeping 1 minute"
+    sleep 60
+    readycount=$(oc get mcp worker-rt --no-headers | awk '{print $7}')
+  done
+
   # create the network
   oc apply -f sriov_network.yaml
   if [ $? -ne 0 ] ; then
@@ -237,12 +247,16 @@ generate_csv() {
 }
 
 init_cleanup() {
-  log "Cloning benchmark-operator from branch ${operator_branch} of ${operator_repo}"
-  rm -rf /tmp/benchmark-operator
-  git clone --single-branch --branch ${operator_branch} ${operator_repo} /tmp/benchmark-operator --depth 1
-  oc delete -f /tmp/benchmark-operator/deploy
-  oc delete -f /tmp/benchmark-operator/resources/crds/ripsaw_v1alpha1_ripsaw_crd.yaml
-  oc delete -f /tmp/benchmark-operator/resources/operator.yaml
+  if [[ "${isBareMetal}" == "false" ]]; then
+    log "Cloning benchmark-operator from branch ${operator_branch} of ${operator_repo}"
+    rm -rf /tmp/benchmark-operator
+    git clone --single-branch --branch ${operator_branch} ${operator_repo} /tmp/benchmark-operator --depth 1
+    oc delete -f /tmp/benchmark-operator/deploy
+    oc delete -f /tmp/benchmark-operator/resources/crds/ripsaw_v1alpha1_ripsaw_crd.yaml
+    oc delete -f /tmp/benchmark-operator/resources/operator.yaml
+  else
+    log "BareMetal Infrastructure: Skipping cleanup"
+  fi
 }
 
 delete_benchmark() {

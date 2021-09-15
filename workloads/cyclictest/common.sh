@@ -233,12 +233,16 @@ generate_csv() {
 }
 
 init_cleanup() {
-  log "Cloning benchmark-operator from branch ${operator_branch} of ${operator_repo}"
-  rm -rf /tmp/benchmark-operator
-  git clone --single-branch --branch ${operator_branch} ${operator_repo} /tmp/benchmark-operator --depth 1
-  oc delete -f /tmp/benchmark-operator/deploy
-  oc delete -f /tmp/benchmark-operator/resources/crds/ripsaw_v1alpha1_ripsaw_crd.yaml
-  oc delete -f /tmp/benchmark-operator/resources/operator.yaml
+  if [[ "${isBareMetal}" == "false" ]]; then
+    log "Cloning benchmark-operator from branch ${operator_branch} of ${operator_repo}"
+    rm -rf /tmp/benchmark-operator
+    git clone --single-branch --branch ${operator_branch} ${operator_repo} /tmp/benchmark-operator --depth 1
+    oc delete -f /tmp/benchmark-operator/deploy
+    oc delete -f /tmp/benchmark-operator/resources/crds/ripsaw_v1alpha1_ripsaw_crd.yaml
+    oc delete -f /tmp/benchmark-operator/resources/operator.yaml
+  else
+    log "BareMetal Infrastructure: Skipping cleanup"
+  fi
 }
 
 delete_benchmark() {
