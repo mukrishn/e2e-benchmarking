@@ -8,15 +8,15 @@ spec:
   workload:
     name: testpmd
     args:
-      privileged: true
-      pin: true
-      pin_testpmd: "worker000-fc640"      
-      pin_trex: "worker002-fc640"      
+      privileged: ${PRIVILEGED}
+      pin: ${PIN}
+      pin_testpmd: ${PIN_TESTPMD}
+      pin_trex: ${PIN_TREX}
       networks:
         testpmd:
-          - name: testpmd-sriov-network
-            count: 2  # Interface count, Min 2
+          - name: ${NETWORK_NAME}
+            count: ${TESTPMD_NETWORK_COUNT}
         trex:
-          - name: testpmd-sriov-network
-            count: 2
+          - name: ${NETWORK_NAME}
+            count: ${TREX_NETWORK_COUNT}
 

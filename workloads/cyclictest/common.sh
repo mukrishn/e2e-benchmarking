@@ -1,4 +1,17 @@
-#!/usr/bin/env/bash
+source env.sh
+
+# If ES_SERVER is set and empty we disable ES indexing and metadata collection
+if [[ -v ES_SERVER ]] && [[ -z ${ES_SERVER} ]]; then
+  export METADATA_COLLECTION=false
+else
+  export PROM_TOKEN=$(oc -n openshift-monitoring sa get-token prometheus-k8s)
+fi
+export NODE_SELECTOR_KEY="node-role.kubernetes.io/worker"
+export NODE_SELECTOR_VALUE=""
+export WAIT_WHEN_FINISHED=true
+export WAIT_FOR=[]
+export TOLERATIONS="[{key: role, value: workload, effect: NoSchedule}]"
+export UUID=$(uuidgen)
 
 log() {
   echo ${bold}$(date -u):  ${@}${normal}
@@ -252,6 +265,6 @@ check_cluster_present
 export_defaults
 init_cleanup
 check_cluster_health
-#deploy_perf_profile
+deploy_perf_profile
 deploy_operator
 

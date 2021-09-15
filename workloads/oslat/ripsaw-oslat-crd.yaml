@@ -7,17 +7,17 @@ metadata:
   namespace: benchmark-operator
 spec:
   elasticsearch:
-    server: <ES_SERVER>
+    server: $_es
   workload:
     name: "oslat"
     args:
-      runtime: "1m"
-      disable_cpu_balance: true
-      use_taskset: true
+      runtime: ${RUNTIME}
+      disable_cpu_balance: ${DISABLE_CPU_BALANCE}
+      use_taskset: ${USE_TASKSET}
       pod:
         requests:
-          memory: "200Mi"
-          cpu: "4"
+          memory: ${MEMORY_REQUESTS}
+          cpu: ${CPU_REQUESTS}
         limits:
-          memory: "200Mi"
-          cpu: "4"
+          memory: ${MEMORY_LIMITS}
+          cpu: ${CPU_LIMITS}

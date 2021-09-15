@@ -5,17 +5,17 @@ metadata:
   namespace: benchmark-operator
 spec:
   elasticsearch:
-    server: <ES_SERVER>
+    server: $_es
   workload:
     name: "cyclictest"
     args:
-      duration: "1m"
-      disable_cpu_balance: true
-      stressng: false
+      duration: ${DURATION}
+      disable_cpu_balance: ${DISABLE_CPU_BALANCE}
+      stressng: ${STRESSNG}
       pod:
         requests:
-          memory: "200Mi"
-          cpu: "4"
+          memory: ${MEMORY_REQUESTS}
+          cpu: ${CPU_REQUESTS}
         limits:
-          memory: "200Mi"
-          cpu: "4"
+          memory: ${MEMORY_LIMITS}
+          cpu: ${CPU_LIMITS}
