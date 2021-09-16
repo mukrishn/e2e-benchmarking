@@ -159,6 +159,29 @@ deploy_perf_profile() {
   fi
 }
 
+cleanup_network() {
+  # cleaning up for later tasks, removing the perf-profile, the network-node-policy, the mcp and the network
+  # also removing the labels on the nodes
+  log "Removing the labels from the nodes"
+  for w in ${testpmd_workers[@]}; do
+    oc label node $w node-role.kubernetes.io/worker-rt-
+  done
+  log "Removing the MCP"
+  oc delete -f machineconfigpool.yaml
+  log "Removing the performance profile"
+  oc delete -f perf_profile.yaml
+  log "Removing the sriov network node policy"
+  oc delete -f sriov_network_node_policy.yaml
+  log "Removing the sriov network"
+  oc delete -f sriov_network.yaml
+  readycount=$(oc get mcp worker --no-headers | awk '{print $7}')
+  while [[ $readycount -ne 2 ]]; do
+    log "Waiting for worker nodes to become ready again after the sriov-network-policy has been deployed, sleeping 1 minute"
+    sleep 60
+    readycount=$(oc get mcp worker --no-headers | awk '{print $7}')
+  done
+
+}
 
 deploy_operator() {
   log "Removing benchmark-operator namespace, if it already exists"
@@ -288,4 +311,5 @@ check_cluster_health
 deploy_perf_profile
 deploy_operator
 deploy_workload
-
+wait_for_benchmark
+cleanup_network
