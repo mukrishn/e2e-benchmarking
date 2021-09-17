@@ -16,7 +16,7 @@ spec:
    numa:
      topologyPolicy: "best-effort"
    nodeSelector:
-     node-role.kubernetes.io/worker-lat: ""
+     node-role.kubernetes.io/worker-rt: ""
    realTimeKernel:
      enabled: true
    additionalKernelArgs:
