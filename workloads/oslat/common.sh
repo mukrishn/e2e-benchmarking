@@ -138,8 +138,8 @@ deploy_perf_profile() {
         readycount=$(oc get mcp worker-rt --no-headers | awk '{print $7}')
       done
     fi
-  }
   fi
+}
 
 deploy_operator() {
   if [[ "${isBareMetal}" == "false" ]]; then
