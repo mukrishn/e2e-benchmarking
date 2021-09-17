@@ -72,7 +72,7 @@ export_defaults() {
 }
 
 deploy_perf_profile() {
-  if [[ $(oc get performanceprofile --no-headers | awk '{print $1}') == "testpmd-performance-profile-0" ]]; then
+  if [[ $(oc get performanceprofile --no-headers | awk '{print $1}') == "benchmark-performance-profile-0" ]]; then
     log "Performance profile already exists. Applying the oslat profile"
     oc apply -f perf_profile.yaml
     if [ $? -ne 0 ]; then
@@ -120,7 +120,7 @@ deploy_perf_profile() {
     fi
     # apply the performanceProfile
     log "Applying the performanceProfile if it doesn't exist yet"
-    profile=$(oc get performanceprofile oslat-performance-profile-0 --no-headers)
+    profile=$(oc get performanceprofile benchmark-performance-profile-0 --no-headers)
     if [ $? -ne 0 ] ; then
       log "PerformanceProfile not found, creating it"
       oc apply -f perf_profile.yaml

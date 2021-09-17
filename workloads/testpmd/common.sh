@@ -116,7 +116,7 @@ deploy_perf_profile() {
   fi
   # apply the performanceProfile
   log "Applying the performanceProfile if it doesn't exist yet"
-  profile=$(oc get performanceprofile testpmd-performance-profile-0 --no-headers)
+  profile=$(oc get performanceprofile benchmark-performance-profile-0 --no-headers)
   if [ $? -ne 0 ] ; then
     log "PerformanceProfile not found, creating it"
     oc create -f perf_profile.yaml

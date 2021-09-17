@@ -75,79 +75,74 @@ export_defaults() {
 
 
 deploy_perf_profile() {
-  if [[ "${baremetalCheck}" == '"BareMetal"' ]]; then
-    log "Trying to find 2 suitable nodes only for testpmd"
-    # iterate over worker nodes until we have at least 2 
-    worker_count=0
-    testpmd_workers=()
-    workers=$(oc get bmh -n openshift-machine-api | grep worker | awk '{print $1}')
-    until [ $worker_count -eq 2 ]; do
-      for worker in $workers; do
-	worker_ip=$(oc get node $worker -o json | jq -r ".status.addresses[0].addres" | grep 192 )
-        if [[ ! -z "$worker_ip" ]]; then 
-          testpmd_workers+=( $worker )
-	  ((worker_count=worker_count+1))
-        fi
-      done
-    done
-  fi
-  
-  # label the two nodes for the performance profile
-  # https://github.com/cloud-bulldozer/benchmark-operator/blob/master/docs/testpmd.md#sample-pao-configuration
-  log "Labeling -rt nodes"
-  for w in ${testpmd_workers[@]}; do
-    oc label node $w node-role.kubernetes.io/worker-rt="" --overwrite=true
-  done
-  # create the machineconfigpool
-  log "Create the MCP"
-  oc create -f machineconfigpool.yaml
-  sleep 30
-  if [ $? -ne 0 ] ; then
-    log "Couldn't create the MCP, exiting!"
-    exit 1
-  fi
-  # add the label to the MCP pool 
-  log "Labeling the MCP"
-  oc label mcp worker-rt machineconfiguration.openshift.io/role=worker-rt
-  if [ $? -ne 0 ] ; then
-    log "Couldn't label the MCP, exiting!"
-    exit 1
-  fi
-  # apply the performanceProfile
-  log "Applying the performanceProfile if it doesn't exist yet"
-  profile=$(oc get performanceprofile testpmd-performance-profile-0 --no-headers)
-  if [ $? -ne 0 ] ; then
-    log "PerformanceProfile not found, creating it"
-    oc create -f perf_profile.yaml
-    if [ $? -ne 0 ] ; then
-      # something when wrong with the perfProfile, bailing out
-      log "Couldn't apply the performance profile, exiting!"
+  if [[ $(oc get performanceprofile --no-headers | awk '{print $1}') == "benchmark-performance-profile-0" ]]; then
+    log "Performance profile already exists. Applying the oslat profile"
+    oc apply -f perf_profile.yaml
+    if [ $? -ne 0 ]; then
+      log "Couldn't apply performance profile, exiting!"
       exit 1
     fi
-    # We need to wait for the nodes with the perfProfile applied to to reboot
-    log "Sleeping for 60 seconds"
-    sleep 60
-    readycount=$(oc get mcp worker-rt --no-headers | awk '{print $7}')
-    while [[ $readycount -ne 2 ]]; do
-      log "Waiting for -rt nodes to become ready again, sleeping 1 minute"
+  else 
+    if [[ "${baremetalCheck}" == '"BareMetal"' ]]; then
+      log "Trying to find 2 suitable nodes only for testpmd"
+      # iterate over worker nodes until we have at least 2 
+      worker_count=0
+      testpmd_workers=()
+      workers=$(oc get bmh -n openshift-machine-api | grep worker | awk '{print $1}')
+      until [ $worker_count -eq 2 ]; do
+        for worker in $workers; do
+    	  worker_ip=$(oc get node $worker -o json | jq -r ".status.addresses[0].addres" | grep 192 )
+          if [[ ! -z "$worker_ip" ]]; then 
+            testpmd_workers+=( $worker )
+  	    ((worker_count=worker_count+1))
+          fi
+        done
+      done
+    fi
+    # label the two nodes for the performance profile
+    # https://github.com/cloud-bulldozer/benchmark-operator/blob/master/docs/testpmd.md#sample-pao-configuration
+    log "Labeling -rt nodes"
+    for w in ${testpmd_workers[@]}; do
+      oc label node $w node-role.kubernetes.io/worker-rt="" --overwrite=true
+    done
+    # create the machineconfigpool
+    log "Create the MCP"
+    oc create -f machineconfigpool.yaml
+    sleep 30
+    if [ $? -ne 0 ] ; then
+      log "Couldn't create the MCP, exiting!"
+      exit 1
+    fi
+    # add the label to the MCP pool 
+    log "Labeling the MCP"
+    oc label mcp worker-rt machineconfiguration.openshift.io/role=worker-rt
+    if [ $? -ne 0 ] ; then
+      log "Couldn't label the MCP, exiting!"
+      exit 1
+    fi
+    # apply the performanceProfile
+    log "Applying the performanceProfile if it doesn't exist yet"
+    profile=$(oc get performanceprofile benchmark-performance-profile-0 --no-headers)
+    if [ $? -ne 0 ] ; then
+      log "PerformanceProfile not found, creating it"
+      oc create -f perf_profile.yaml
+      if [ $? -ne 0 ] ; then
+        # something when wrong with the perfProfile, bailing out
+        log "Couldn't apply the performance profile, exiting!"
+        exit 1
+      fi
+      # We need to wait for the nodes with the perfProfile applied to to reboot
+      log "Sleeping for 60 seconds"
       sleep 60
       readycount=$(oc get mcp worker-rt --no-headers | awk '{print $7}')
-    done
+      while [[ $readycount -ne 2 ]]; do
+        log "Waiting for -rt nodes to become ready again, sleeping 1 minute"
+        sleep 60
+        readycount=$(oc get mcp worker-rt --no-headers | awk '{print $7}')
+      done
+    fi
+  }
   fi
-  # apply the node policy
-  oc apply -f sriov_network_node_policy.yaml
-  if [ $? -ne 0 ] ; then
-    log "Could't create the network node policy, exiting!"
-    exit 1
-  fi
-  # create the network
-  oc apply -f sriov_network.yaml
-  if [ $? -ne 0 ] ; then
-    log "Could not create the sriov network, exiting!"
-    exit 1
-  fi
-}
-
 
 deploy_operator() {
   if [[ "${isBareMetal}" == "false" ]]; then
