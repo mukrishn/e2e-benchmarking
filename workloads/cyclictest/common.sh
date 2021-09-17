@@ -77,13 +77,13 @@ export_defaults() {
 deploy_perf_profile() {
   if [[ "${baremetalCheck}" == '"BareMetal"' ]]; then
     log "Trying to find 2 suitable nodes only for testpmd"
-    # iterate over worker nodes bareMetalHandles until we have at least 2 
+    # iterate over worker nodes until we have at least 2 
     worker_count=0
     testpmd_workers=()
     workers=$(oc get bmh -n openshift-machine-api | grep worker | awk '{print $1}')
     until [ $worker_count -eq 2 ]; do
       for worker in $workers; do
-        worker_ip=$(oc get bmh $worker -n openshift-machine-api -o go-template='{{range .status.hardware.nics}}{{.name}}{{" "}}{{.ip}}{{"\n"}}{{end}}' | grep 192)
+	worker_ip=$(oc get node $worker -o json | jq -r ".status.addresses[0].addres" | grep 192 )
         if [[ ! -z "$worker_ip" ]]; then 
           testpmd_workers+=( $worker )
 	  ((worker_count=worker_count+1))
@@ -150,17 +150,23 @@ deploy_perf_profile() {
 
 
 deploy_operator() {
-  log "Removing benchmark-operator namespace, if it already exists"
-  oc delete namespace benchmark-operator --ignore-not-found
-  log "Cloning benchmark-operator from branch ${operator_branch} of ${operator_repo}"
-  rm -rf benchmark-operator
-  git clone --single-branch --branch ${operator_branch} ${operator_repo} --depth 1
-  (cd benchmark-operator && make deploy)
-  oc wait --for=condition=available "deployment/benchmark-controller-manager" -n benchmark-operator --timeout=300s
-  oc adm policy -n benchmark-operator add-scc-to-user privileged -z benchmark-operator
-  oc adm policy -n benchmark-operator add-scc-to-user privileged -z backpack-view
-  oc patch scc restricted --type=merge -p '{"allowHostNetwork": true}'
+  if [[ "${isBareMetal}" == "false" ]]; then
+    log "Removing benchmark-operator namespace, if it already exists"
+    oc delete namespace benchmark-operator --ignore-not-found
+    log "Cloning benchmark-operator from branch ${operator_branch} of ${operator_repo}"
+  else
+    log "Baremetal infrastructure: Keeping benchmark-operator namespace"
+    log "Cloning benchmark-operator from branch ${operator_branch} of ${operator_repo}"
+  fi
+    rm -rf benchmark-operator  
+    git clone --single-branch --branch ${operator_branch} ${operator_repo} --depth 1
+    (cd benchmark-operator && make deploy)
+    oc wait --for=condition=available "deployment/benchmark-controller-manager" -n benchmark-operator --timeout=300s
+    oc adm policy -n benchmark-operator add-scc-to-user privileged -z benchmark-operator
+    oc adm policy -n benchmark-operator add-scc-to-user privileged -z backpack-view
+    oc patch scc restricted --type=merge -p '{"allowHostNetwork": true}'
 }
+
 
 deploy_workload() {
   log "Deploying cyclictest benchmark"
