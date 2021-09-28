@@ -1,5 +1,16 @@
 source env.sh
 
+# global variables
+length=0
+numa_node=1
+numa_nodes_0=()
+numa_nodes_1=()
+cpus_0=()
+cpus_1=()
+isolated=()
+reserved=()
+
+
 # If ES_SERVER is set and empty we disable ES indexing and metadata collection
 if [[ -v ES_SERVER ]] && [[ -z ${ES_SERVER} ]]; then
   export METADATA_COLLECTION=false
@@ -75,12 +86,13 @@ export_defaults() {
 
 
 deploy_perf_profile() {
+  # find suitable nodes
   if [[ "${baremetalCheck}" == '"BareMetal"' ]]; then
     log "Trying to find 2 suitable nodes only for testpmd"
     # iterate over worker nodes bareMetalHandles until we have at least 2 
     worker_count=0
     #workers=$(oc get bmh -n openshift-machine-api | grep worker | awk '{print $1}')
-    workers=$(oc get nodes | grep ^worker | awk '{print $1}')
+    workers=$(oc get nodes | grep -v master | grep -v worker-lb | grep ^worker | awk '{print $1}')
     until [ $worker_count -eq 2 ]; do
       for worker in $workers; do
         #worker_ip=$(oc get bmh $worker -n openshift-machine-api -o go-template='{{range .status.hardware.nics}}{{.name}}{{" "}}{{.ip}}{{"\n"}}{{end}}' | grep 192)
@@ -92,6 +104,79 @@ deploy_perf_profile() {
       done
     done
   fi
+
+  # get the interface's NUMA zone
+  for w in ${workers[@]}; do
+        niclist+=($(ssh -o StrictHostKeyChecking=no core@$w "sudo ovs-vsctl list-ports br-ex | head -1"))
+        # do we need to check if the nics are unique?
+        # also get the CPU alignment
+        numa_nodes_0=$(ssh core@$w "lscpu | grep '^NUMA node0'" | cut -d ":" -f 2 )
+        numa_nodes_1=$(ssh core@$w "lscpu | grep '^NUMA node1'" | cut -d ":" -f 2 )
+  done
+
+  # convert strings into arrays so we can split easier
+  for entry in $(IFS=','; echo $numa_nodes_0); do
+    cpus_0+=($entry)
+  done
+  for entry in $(IFS=','; echo $numa_nodes_1); do
+    cpus_1+=($entry)
+  done
+
+  # check the numa node of every nic
+  for nic in ${niclist[@]}; do
+    numa_node=$(ssh -o StrictHostKeyChecking=no core@${workers[$length]} "cat /sys/class/net/"$nic"/device/numa_node")
+    echo numa_node $numa_node
+    length=$((length+1))
+  done
+
+  if [[ $numa_node == 0 ]]; then
+    # all cpus in cpus_0 - 2 for housekeeping go to isolated
+    num_cpus=${#cpus_0[@]}
+    count=0
+    max=$(($num_cpus-3))
+    for cpu in ${cpus_0[@]}; do
+      if [ $count -le $max ]; then
+        # add the cpu to the isolated nodes
+        isolated+=($cpu)
+      else
+        # add the cpu to the reserved nodes
+        reserved+=($cpu)
+      fi
+      count=$((count+1))
+    done
+    # add the remaining CPUs to reserved
+    reserved+=("${cpus_1[@]}")
+    #echo reserved ${reserved[@]}
+    #echo isolated ${isolated[@]}
+  elif [[ $numa_node == 1 ]]; then
+    # all cpus in cpus_1 - 2 for housekeeping go to isolated
+    num_cpus=${#cpus_1[@]}
+    count=0
+    max=$(($num_cpus-3))
+    for cpu in ${cpus_1[@]}; do
+      if [ $count -le $max ]; then
+        # add the cpu to the isolated nodes
+        isolated+=($cpu)
+      else
+        # add the cpu to the reserved nodes
+      reserved+=($cpu)
+      fi
+        count=$((count+1))
+      done
+      # add the remaining CPUs to reserved
+      reserved+=("${cpus_0[@]}")
+      #echo reserved ${reserved[@]}
+      #echo isolated ${isolated[@]}
+  fi
+
+  # templatize the perf profile
+  #sed -e 'i/_RESERVED/${reserved[@]}' perf_profile.yaml
+  reserved_string=$(echo ${reserved[@]} | sed -s 's/ /,/g')
+  isolated_string=$(echo ${isolated[@]} | sed -s 's/ /,/g')
+  echo reserved_string $reserved_string
+  echo isolated_string $isolated_string
+  sed -i "s/_RESERVED_/$reserved_string/" perf_profile.yaml
+  sed -i "s/_ISOLATED_/$isolated_string/" perf_profile.yaml
   
   # label the two nodes for the performance profile
   # https://github.com/cloud-bulldozer/benchmark-operator/blob/master/docs/testpmd.md#sample-pao-configuration
