@@ -12,6 +12,7 @@ spec:
       pin: ${PIN}
       pin_testpmd: ${PIN_TESTPMD}
       pin_trex: ${PIN_TREX}
+      socket_memory: ${SOCKET_MEMORY}
       networks:
         testpmd:
           - name: ${NETWORK_NAME}

@@ -15,6 +15,8 @@ export PRIVILEGED=${PRIVILEGED:-true}
 export PIN=${PIN:-true}
 export PIN_TESTPMD=${PIN_TESTPMD:-worker-0}
 export PIN_TREX=${PIN_TREX:-worker-1}
+export SOCKET_MEMORY=${SOCKET_MEMORY:-"0,1024"}
 export NETWORK_NAME=${NETWORK_NAME:-testpmd-sriov-network}
 export TESTPMD_NETWORK_COUNT=${TESTPMD_NETWORK_COUNT:-2}
 export TREX_NETWORK_COUNT=${TREX_NETWORK_COUNT:-2}
+
