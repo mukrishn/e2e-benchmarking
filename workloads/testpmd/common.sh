@@ -9,7 +9,7 @@ cpus_0=()
 cpus_1=()
 isolated=()
 reserved=()
-
+nic=""
 
 # If ES_SERVER is set and empty we disable ES indexing and metadata collection
 if [[ -v ES_SERVER ]] && [[ -z ${ES_SERVER} ]]; then
@@ -171,14 +171,15 @@ deploy_perf_profile() {
       #echo isolated ${isolated[@]}
   fi
 
-  # templatize the perf profile
-  #sed -e 'i/_RESERVED/${reserved[@]}' perf_profile.yaml
+  # templatize the perf profile and the sriov network node policy
   reserved_string=$(echo ${reserved[@]} | sed -s 's/ /,/g')
   isolated_string=$(echo ${isolated[@]} | sed -s 's/ /,/g')
-  #echo reserved_string $reserved_string
-  #echo isolated_string $isolated_string
+  # echo reserved_string $reserved_string
+  # echo isolated_string $isolated_string
   sed -i "s/_RESERVED_/$reserved_string/" perf_profile.yaml
   sed -i "s/_ISOLATED_/$isolated_string/" perf_profile.yaml
+  sed -i "s/_NUMA_NODE_/$numa_node/" perf_profile.yaml
+  sed -i "s/_SRIOV_NIC_/$nic/" sriov_network_node_policy.yaml
  
   # label the two nodes for the performance profile
   # https://github.com/cloud-bulldozer/benchmark-operator/blob/master/docs/testpmd.md#sample-pao-configuration
