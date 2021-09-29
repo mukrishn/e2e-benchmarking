@@ -53,6 +53,9 @@ export_defaults() {
   operator_repo=${OPERATOR_REPO:=https://github.com/cloud-bulldozer/benchmark-operator.git}
   operator_branch=${OPERATOR_BRANCH:=master}
   CRD=${CRD:-ripsaw-testpmd-crd.yaml}
+  MCP=${MCP:-machineconfigpool.yaml}
+  PFP=${PFP:-perf_profile.yaml}
+  NNP=${NNP:-sriov_network_node_policy.yaml}
   export _es=${ES_SERVER:-https://search-perfscale-dev-chmf5l4sh66lvxbnadi4bznl3a.us-west-2.es.amazonaws.com:443}
   _es_baseline=${ES_SERVER_BASELINE:-https://search-perfscale-dev-chmf5l4sh66lvxbnadi4bznl3a.us-west-2.es.amazonaws.com:443}
   export _metadata_collection=${METADATA_COLLECTION:=true}
@@ -118,8 +121,9 @@ deploy_perf_profile() {
   # check if the entries in nic_numa are all identical
   if [ "${#nic_numa[@]}" -gt 0 ] && [ $(printf "%s\000" "${nic_numa[@]}" | LC_ALL=C sort -z -u | grep -z -c .) -eq 1 ] ; then
           log "The numa_node for all selected NICs is identical, continuing."
+	  numa_node=${nic_numa[0]}
   else
-          echo "The numa_nodes for the selected NICs are different, bailing!"
+          echo "The numa_nodes for the selected NICs are different, bailing out!"
           exit 1
   fi
 
@@ -133,6 +137,7 @@ deploy_perf_profile() {
 
   # numa node is 0
   if [[ $numa_node == 0 ]]; then
+    export numa_node=$numa_node
     # all cpus in cpus_0 - 2 for housekeeping go to isolated
     num_cpus=${#cpus_0[@]}
     count=0
@@ -165,6 +170,7 @@ deploy_perf_profile() {
     done
   # numa node is 1
   elif [[ $numa_node == 1 ]]; then
+    export numa_node=$numa_node
     # all cpus in cpus_1 - 2 for housekeeping go to isolated
     num_cpus=${#cpus_1[@]}
     count=0
@@ -217,7 +223,7 @@ deploy_perf_profile() {
   done
   # create the machineconfigpool
   log "Create the MCP"
-  oc apply -f machineconfigpool.yaml
+  envsubst < $MCP | oc apply -f -
   sleep 30
   if [ $? -ne 0 ] ; then
     log "Couldn't create the MCP, exiting!"
@@ -235,7 +241,7 @@ deploy_perf_profile() {
   profile=$(oc get performanceprofile benchmark-performance-profile-0 --no-headers)
   if [ $? -ne 0 ] ; then
     log "PerformanceProfile not found, creating it"
-    oc create -f perf_profile.yaml
+    envsubst < $PFP | oc create -f -
     if [ $? -ne 0 ] ; then
       # something when wrong with the perfProfile, bailing out
       log "Couldn't apply the performance profile, exiting!"
@@ -252,7 +258,7 @@ deploy_perf_profile() {
     done
   fi
   # apply the node policy
-  oc apply -f sriov_network_node_policy.yaml
+  envsubst < $NNP | oc apply -f -
   if [ $? -ne 0 ] ; then
     log "Could't create the network node policy, exiting!"
     exit 1
