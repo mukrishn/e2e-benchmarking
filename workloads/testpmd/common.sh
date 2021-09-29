@@ -131,44 +131,72 @@ deploy_perf_profile() {
     cpus_1+=($entry)
   done
 
+  # numa node is 0
   if [[ $numa_node == 0 ]]; then
     # all cpus in cpus_0 - 2 for housekeeping go to isolated
     num_cpus=${#cpus_0[@]}
     count=0
-    max=$(($num_cpus-3))
+    max=$(($num_cpus / 2))
+    max_isol=$((max -2))
     for cpu in ${cpus_0[@]}; do
-      if [ $count -le $max ]; then
+      if [ $count -le $max_isol ]; then
+        # add the cpu to the isolated nodes
+        isolated+=($cpu)
+      elif [ $count -gt $max_isol ] && [ $count -le $max ]; then
+        # add the cpu to the reserved nodes
+        reserved+=($cpu)
+      fi
+      count=$((count+1))
+    done
+
+    # add the remaining CPUs to reserved
+    num_cpus=${#cpus_1[@]}
+    count=0
+    max=$(($num_cpus / 2))
+    for cpu in ${cpus_1[@]}; do
+      if [ $count -le $max ] ; then
         # add the cpu to the isolated nodes
         isolated+=($cpu)
       else
         # add the cpu to the reserved nodes
         reserved+=($cpu)
       fi
-      count=$((count+2)) # increasing the count by 2 to work around HT cores
+      count=$((count+1))
     done
-    # add the remaining CPUs to reserved
-    reserved+=("${cpus_1[@]}")
-    #echo reserved ${reserved[@]}
-    #echo isolated ${isolated[@]}
+  # numa node is 1
   elif [[ $numa_node == 1 ]]; then
     # all cpus in cpus_1 - 2 for housekeeping go to isolated
     num_cpus=${#cpus_1[@]}
     count=0
-    max=$(($num_cpus-3))
+    max=$(($num_cpus / 2))
+    max_isol=$((max - 2))
     for cpu in ${cpus_1[@]}; do
-      if [ $count -le $max ]; then
+      if [ $count -le $max_isol ]; then
         # add the cpu to the isolated nodes
         isolated+=($cpu)
-      else
-        # add the cpu to the reserved nodes
+      elif [ $count -gt $max_isol ] && [ $count -le $max ]; then
+        # add the cpu to the reserved nodes for housekeeping
+        reserved+=($cpu)
+      fi
+        count=$((count+1))
+    done
+
+    # add the remaining CPUs to reserved
+    num_cpus=${#cpus_0[@]}
+    count=0
+    max=$(($num_cpus / 2))
+    echo max: $max
+    for cpu in ${cpus_0[@]}; do
+      if [ $count -le $max ] ; then
+      # add the cpu to the reserved nodes
+      echo count: $count
+      echo adding cpu: $cpu to reserved
       reserved+=($cpu)
       fi
-        count=$((count+2))
-      done
-      # add the remaining CPUs to reserved
-      reserved+=("${cpus_0[@]}")
-      #echo reserved ${reserved[@]}
-      #echo isolated ${isolated[@]}
+      count=$((count+1))
+    done
+    echo reserved ${reserved[@]}
+    echo isolated ${isolated[@]}
   fi
 
   # templatize the perf profile and the sriov network node policy
