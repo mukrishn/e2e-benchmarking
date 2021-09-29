@@ -144,7 +144,7 @@ deploy_perf_profile() {
         # add the cpu to the reserved nodes
         reserved+=($cpu)
       fi
-      count=$((count+1))
+      count=$((count+2)) # increasing the count by 2 to work around HT cores
     done
     # add the remaining CPUs to reserved
     reserved+=("${cpus_1[@]}")
@@ -163,7 +163,7 @@ deploy_perf_profile() {
         # add the cpu to the reserved nodes
       reserved+=($cpu)
       fi
-        count=$((count+1))
+        count=$((count+2))
       done
       # add the remaining CPUs to reserved
       reserved+=("${cpus_0[@]}")
