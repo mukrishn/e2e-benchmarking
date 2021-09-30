@@ -112,7 +112,7 @@ deploy_perf_profile() {
   for w in ${workers[@]}; do
         nic=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "sudo ovs-vsctl list-ports br-ex | head -1")
 	export sriov_nic=$nic
-        nic_numa+=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "cat /sys/class/net/"$nic"/device/numa_node")
+        nic_numa=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "cat /sys/class/net/"$nic"/device/numa_node")
         #echo niclist ${niclist[@]}
         # do we need to check if the nics are unique?
         # also get the CPU alignment
