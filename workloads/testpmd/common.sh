@@ -195,25 +195,21 @@ deploy_perf_profile() {
     for cpu in ${cpus_0[@]}; do
       if [ $count -le $max ] ; then
       # add the cpu to the reserved nodes
-      echo count: $count
-      echo adding cpu: $cpu to reserved
+      #echo count: $count
+      #echo adding cpu: $cpu to reserved
       reserved+=($cpu)
       fi
       count=$((count+1))
     done
-    echo reserved ${reserved[@]}
-    echo isolated ${isolated[@]}
+    #echo reserved ${reserved[@]}
+    #echo isolated ${isolated[@]}
   fi
 
   # templatize the perf profile and the sriov network node policy
   reserved_string=$(echo ${reserved[@]} | sed -s 's/ /,/g')
   isolated_string=$(echo ${isolated[@]} | sed -s 's/ /,/g')
-  # echo reserved_string $reserved_string
-  # echo isolated_string $isolated_string
-  sed -i "s/_RESERVED_/$reserved_string/" perf_profile.yaml
-  sed -i "s/_ISOLATED_/$isolated_string/" perf_profile.yaml
-  sed -i "s/_NUMA_NODE_/$numa_node/" perf_profile.yaml
-  sed -i "s/_SRIOV_NIC_/$nic/" sriov_network_node_policy.yaml
+  export isolated_cpus=$isolated_string
+  export reserved_cpus=$reserved_string
  
   # label the two nodes for the performance profile
   # https://github.com/cloud-bulldozer/benchmark-operator/blob/master/docs/testpmd.md#sample-pao-configuration
@@ -221,6 +217,7 @@ deploy_perf_profile() {
   for w in ${testpmd_workers[@]}; do
     oc label node $w node-role.kubernetes.io/worker-rt="" --overwrite=true
   done
+
   # create the machineconfigpool
   log "Create the MCP"
   envsubst < $MCP | oc apply -f -
@@ -229,6 +226,7 @@ deploy_perf_profile() {
     log "Couldn't create the MCP, exiting!"
     exit 1
   fi
+
   # add the label to the MCP pool 
   log "Labeling the MCP"
   oc label mcp worker-rt machineconfiguration.openshift.io/role=worker-rt --overwrite=true
@@ -236,6 +234,7 @@ deploy_perf_profile() {
     log "Couldn't label the MCP, exiting!"
     exit 1
   fi
+
   # apply the performanceProfile
   log "Applying the performanceProfile if it doesn't exist yet"
   profile=$(oc get performanceprofile benchmark-performance-profile-0 --no-headers)
@@ -257,6 +256,7 @@ deploy_perf_profile() {
       readycount=$(oc get mcp worker-rt --no-headers | awk '{print $7}')
     done
   fi
+
   # apply the node policy
   envsubst < $NNP | oc apply -f -
   if [ $? -ne 0 ] ; then
