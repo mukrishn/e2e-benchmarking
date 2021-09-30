@@ -7,7 +7,7 @@ spec:
   deviceType: vfio-pci
   nicSelector:
     pfNames:
-     - ens2f1
+     - $sriov_nic
   nodeSelector:
     node-role.kubernetes.io/worker-rt: ""
   numVfs: 20

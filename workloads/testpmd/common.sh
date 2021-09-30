@@ -9,7 +9,7 @@ cpus_0=()
 cpus_1=()
 isolated=()
 reserved=()
-
+nic=""
 
 # If ES_SERVER is set and empty we disable ES indexing and metadata collection
 if [[ -v ES_SERVER ]] && [[ -z ${ES_SERVER} ]]; then
@@ -53,6 +53,9 @@ export_defaults() {
   operator_repo=${OPERATOR_REPO:=https://github.com/cloud-bulldozer/benchmark-operator.git}
   operator_branch=${OPERATOR_BRANCH:=master}
   CRD=${CRD:-ripsaw-testpmd-crd.yaml}
+  MCP=${MCP:-machineconfigpool.yaml}
+  PFP=${PFP:-perf_profile.yaml}
+  NNP=${NNP:-sriov_network_node_policy.yaml}
   export _es=${ES_SERVER:-https://search-perfscale-dev-chmf5l4sh66lvxbnadi4bznl3a.us-west-2.es.amazonaws.com:443}
   _es_baseline=${ES_SERVER_BASELINE:-https://search-perfscale-dev-chmf5l4sh66lvxbnadi4bznl3a.us-west-2.es.amazonaws.com:443}
   export _metadata_collection=${METADATA_COLLECTION:=true}
@@ -107,19 +110,21 @@ deploy_perf_profile() {
 
   # get the interface's NUMA zone
   for w in ${workers[@]}; do
-        nic=$(ssh -o StrictHostKeyChecking=no core@$w "sudo ovs-vsctl list-ports br-ex | head -1")
-        nic_numa+=$(ssh -o StrictHostKeyChecking=no core@$w "cat /sys/class/net/"$nic"/device/numa_node")
+        nic=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "sudo ovs-vsctl list-ports br-ex | head -1")
+	export sriov_nic=$nic
+        nic_numa+=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "cat /sys/class/net/"$nic"/device/numa_node")
         #echo niclist ${niclist[@]}
         # do we need to check if the nics are unique?
         # also get the CPU alignment
-        numa_nodes_0=$(ssh -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node0' | cut -d ':' -f 2")
-        numa_nodes_1=$(ssh -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node1' | cut -d ':' -f 2" )
+        numa_nodes_0=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node0' | cut -d ':' -f 2")
+        numa_nodes_1=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node1' | cut -d ':' -f 2" )
   done
   # check if the entries in nic_numa are all identical
   if [ "${#nic_numa[@]}" -gt 0 ] && [ $(printf "%s\000" "${nic_numa[@]}" | LC_ALL=C sort -z -u | grep -z -c .) -eq 1 ] ; then
           log "The numa_node for all selected NICs is identical, continuing."
+	  numa_node=${nic_numa[0]}
   else
-          echo "The numa_nodes for the selected NICs are different, bailing!"
+          echo "The numa_nodes for the selected NICs are different, bailing out!"
           exit 1
   fi
 
@@ -131,13 +136,31 @@ deploy_perf_profile() {
     cpus_1+=($entry)
   done
 
+  # numa node is 0
   if [[ $numa_node == 0 ]]; then
+    export numa_node=$numa_node
     # all cpus in cpus_0 - 2 for housekeeping go to isolated
     num_cpus=${#cpus_0[@]}
     count=0
-    max=$(($num_cpus-3))
+    max=$(($num_cpus / 2))
+    max_isol=$((max -2))
     for cpu in ${cpus_0[@]}; do
-      if [ $count -le $max ]; then
+      if [ $count -le $max_isol ]; then
+        # add the cpu to the isolated nodes
+        isolated+=($cpu)
+      elif [ $count -gt $max_isol ] && [ $count -le $max ]; then
+        # add the cpu to the reserved nodes
+        reserved+=($cpu)
+      fi
+      count=$((count+1))
+    done
+
+    # add the remaining CPUs to reserved
+    num_cpus=${#cpus_1[@]}
+    count=0
+    max=$(($num_cpus / 2))
+    for cpu in ${cpus_1[@]}; do
+      if [ $count -le $max ] ; then
         # add the cpu to the isolated nodes
         isolated+=($cpu)
       else
@@ -146,39 +169,48 @@ deploy_perf_profile() {
       fi
       count=$((count+1))
     done
-    # add the remaining CPUs to reserved
-    reserved+=("${cpus_1[@]}")
-    #echo reserved ${reserved[@]}
-    #echo isolated ${isolated[@]}
+  # numa node is 1
   elif [[ $numa_node == 1 ]]; then
+    export numa_node=$numa_node
     # all cpus in cpus_1 - 2 for housekeeping go to isolated
     num_cpus=${#cpus_1[@]}
     count=0
-    max=$(($num_cpus-3))
+    max=$(($num_cpus / 2))
+    max_isol=$((max - 2))
     for cpu in ${cpus_1[@]}; do
-      if [ $count -le $max ]; then
+      if [ $count -le $max_isol ]; then
         # add the cpu to the isolated nodes
         isolated+=($cpu)
-      else
-        # add the cpu to the reserved nodes
-      reserved+=($cpu)
+      elif [ $count -gt $max_isol ] && [ $count -le $max ]; then
+        # add the cpu to the reserved nodes for housekeeping
+        reserved+=($cpu)
       fi
         count=$((count+1))
-      done
-      # add the remaining CPUs to reserved
-      reserved+=("${cpus_0[@]}")
-      #echo reserved ${reserved[@]}
-      #echo isolated ${isolated[@]}
+    done
+
+    # add the remaining CPUs to reserved
+    num_cpus=${#cpus_0[@]}
+    count=0
+    max=$(($num_cpus / 2))
+    echo max: $max
+    for cpu in ${cpus_0[@]}; do
+      if [ $count -le $max ] ; then
+      # add the cpu to the reserved nodes
+      #echo count: $count
+      #echo adding cpu: $cpu to reserved
+      reserved+=($cpu)
+      fi
+      count=$((count+1))
+    done
+    #echo reserved ${reserved[@]}
+    #echo isolated ${isolated[@]}
   fi
 
-  # templatize the perf profile
-  #sed -e 'i/_RESERVED/${reserved[@]}' perf_profile.yaml
+  # templatize the perf profile and the sriov network node policy
   reserved_string=$(echo ${reserved[@]} | sed -s 's/ /,/g')
   isolated_string=$(echo ${isolated[@]} | sed -s 's/ /,/g')
-  #echo reserved_string $reserved_string
-  #echo isolated_string $isolated_string
-  sed -i "s/_RESERVED_/$reserved_string/" perf_profile.yaml
-  sed -i "s/_ISOLATED_/$isolated_string/" perf_profile.yaml
+  export isolated_cpus=$isolated_string
+  export reserved_cpus=$reserved_string
  
   # label the two nodes for the performance profile
   # https://github.com/cloud-bulldozer/benchmark-operator/blob/master/docs/testpmd.md#sample-pao-configuration
@@ -186,14 +218,16 @@ deploy_perf_profile() {
   for w in ${testpmd_workers[@]}; do
     oc label node $w node-role.kubernetes.io/worker-rt="" --overwrite=true
   done
+
   # create the machineconfigpool
   log "Create the MCP"
-  oc apply -f machineconfigpool.yaml
+  envsubst < $MCP | oc apply -f -
   sleep 30
   if [ $? -ne 0 ] ; then
     log "Couldn't create the MCP, exiting!"
     exit 1
   fi
+
   # add the label to the MCP pool 
   log "Labeling the MCP"
   oc label mcp worker-rt machineconfiguration.openshift.io/role=worker-rt --overwrite=true
@@ -201,12 +235,13 @@ deploy_perf_profile() {
     log "Couldn't label the MCP, exiting!"
     exit 1
   fi
+
   # apply the performanceProfile
   log "Applying the performanceProfile if it doesn't exist yet"
   profile=$(oc get performanceprofile benchmark-performance-profile-0 --no-headers)
   if [ $? -ne 0 ] ; then
     log "PerformanceProfile not found, creating it"
-    oc create -f perf_profile.yaml
+    envsubst < $PFP | oc create -f -
     if [ $? -ne 0 ] ; then
       # something when wrong with the perfProfile, bailing out
       log "Couldn't apply the performance profile, exiting!"
@@ -222,8 +257,9 @@ deploy_perf_profile() {
       readycount=$(oc get mcp worker-rt --no-headers | awk '{print $7}')
     done
   fi
+
   # apply the node policy
-  oc apply -f sriov_network_node_policy.yaml
+  envsubst < $NNP | oc apply -f -
   if [ $? -ne 0 ] ; then
     log "Could't create the network node policy, exiting!"
     exit 1
