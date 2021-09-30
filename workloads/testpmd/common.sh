@@ -110,13 +110,13 @@ deploy_perf_profile() {
 
   # get the interface's NUMA zone
   for w in ${workers[@]}; do
-        nic=$(ssh -o StrictHostKeyChecking=no core@$w "sudo ovs-vsctl list-ports br-ex | head -1")
-        nic_numa+=$(ssh -o StrictHostKeyChecking=no core@$w "cat /sys/class/net/"$nic"/device/numa_node")
+        nic=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "sudo ovs-vsctl list-ports br-ex | head -1")
+        nic_numa+=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "cat /sys/class/net/"$nic"/device/numa_node")
         #echo niclist ${niclist[@]}
         # do we need to check if the nics are unique?
         # also get the CPU alignment
-        numa_nodes_0=$(ssh -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node0' | cut -d ':' -f 2")
-        numa_nodes_1=$(ssh -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node1' | cut -d ':' -f 2" )
+        numa_nodes_0=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node0' | cut -d ':' -f 2")
+        numa_nodes_1=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node1' | cut -d ':' -f 2" )
   done
   # check if the entries in nic_numa are all identical
   if [ "${#nic_numa[@]}" -gt 0 ] && [ $(printf "%s\000" "${nic_numa[@]}" | LC_ALL=C sort -z -u | grep -z -c .) -eq 1 ] ; then
