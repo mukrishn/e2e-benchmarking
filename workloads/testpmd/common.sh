@@ -10,6 +10,7 @@ cpus_1=()
 isolated=()
 reserved=()
 nic=""
+testpmd_workers=()
 
 # If ES_SERVER is set and empty we disable ES indexing and metadata collection
 if [[ -v ES_SERVER ]] && [[ -z ${ES_SERVER} ]]; then
@@ -96,38 +97,40 @@ deploy_perf_profile() {
     worker_count=0
     #workers=$(oc get bmh -n openshift-machine-api | grep worker | awk '{print $1}')
     workers=$(oc get nodes | grep -v master | grep -v worker-lb | grep ^worker | awk '{print $1}')
-    until [ $worker_count -eq 2 ]; do
-      for worker in $workers; do
+    workers=($workers) # turn it into an array
+    while [[ $worker_count -lt 2 ]]; do 
         #worker_ip=$(oc get bmh $worker -n openshift-machine-api -o go-template='{{range .status.hardware.nics}}{{.name}}{{" "}}{{.ip}}{{"\n"}}{{end}}' | grep 192)
-	worker_ip=$(oc get node $worker -o json | jq -r ".status.addresses[0].address" | grep 192 )
+	worker=${workers[$worker_count]}
+	worker_ip=$(oc get node ${workers[$worker_count]} -o json | jq -r ".status.addresses[0].address" | grep 192 )
         if [[ ! -z "$worker_ip" ]]; then 
-          testpmd_workers+=( $worker )
-	  ((worker_count=worker_count+1))
+	  testpmd_workers+=($worker)
+	  ((worker_count++))
         fi
-      done
     done
   fi
-
+  
   # get the interface's NUMA zone
-  for w in ${workers[@]}; do
+  for w in ${testpmd_workers[@]}; do
         nic=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "sudo ovs-vsctl list-ports br-ex | head -1")
 	export sriov_nic=$nic
-        nic_numa+=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "cat /sys/class/net/"$nic"/device/numa_node")
+	log "Getting the NUMA zones for the NICs"
+	nic_numa+=($(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "cat /sys/class/net/"$nic"/device/numa_node"))
         #echo niclist ${niclist[@]}
-        # do we need to check if the nics are unique?
         # also get the CPU alignment
         numa_nodes_0=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node0' | cut -d ':' -f 2")
         numa_nodes_1=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node1' | cut -d ':' -f 2" )
   done
+
   # check if the entries in nic_numa are all identical
   if [ "${#nic_numa[@]}" -gt 0 ] && [ $(printf "%s\000" "${nic_numa[@]}" | LC_ALL=C sort -z -u | grep -z -c .) -eq 1 ] ; then
           log "The numa_node for all selected NICs is identical, continuing."
 	  numa_node=${nic_numa[0]}
+	  export numa_node=$numa_node
   else
           echo "The numa_nodes for the selected NICs are different, bailing out!"
           exit 1
   fi
-
+   
   # convert strings into arrays so we can split easier
   for entry in $(IFS=','; echo $numa_nodes_0); do
     cpus_0+=($entry)
@@ -138,7 +141,6 @@ deploy_perf_profile() {
 
   # numa node is 0
   if [[ $numa_node == 0 ]]; then
-    export numa_node=$numa_node
     # all cpus in cpus_0 - 2 for housekeeping go to isolated
     num_cpus=${#cpus_0[@]}
     count=0
@@ -171,7 +173,6 @@ deploy_perf_profile() {
     done
   # numa node is 1
   elif [[ $numa_node == 1 ]]; then
-    export numa_node=$numa_node
     # all cpus in cpus_1 - 2 for housekeeping go to isolated
     num_cpus=${#cpus_1[@]}
     count=0
@@ -241,7 +242,8 @@ deploy_perf_profile() {
   profile=$(oc get performanceprofile benchmark-performance-profile-0 --no-headers)
   if [ $? -ne 0 ] ; then
     log "PerformanceProfile not found, creating it"
-    envsubst < $PFP | oc create -f -
+    envsubst < $PFP > /tmp/perf_profile.yaml
+    exit
     if [ $? -ne 0 ] ; then
       # something when wrong with the perfProfile, bailing out
       log "Couldn't apply the performance profile, exiting!"
