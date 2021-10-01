@@ -242,8 +242,7 @@ deploy_perf_profile() {
   profile=$(oc get performanceprofile benchmark-performance-profile-0 --no-headers)
   if [ $? -ne 0 ] ; then
     log "PerformanceProfile not found, creating it"
-    envsubst < $PFP > /tmp/perf_profile.yaml
-    exit
+    envsubst < $PFP | oc apply -f -
     if [ $? -ne 0 ] ; then
       # something when wrong with the perfProfile, bailing out
       log "Couldn't apply the performance profile, exiting!"
