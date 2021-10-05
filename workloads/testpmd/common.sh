@@ -96,8 +96,12 @@ deploy_perf_profile() {
     # iterate over worker nodes bareMetalHandles until we have at least 2 
     worker_count=0
     #workers=$(oc get bmh -n openshift-machine-api | grep worker | awk '{print $1}')
-    workers=$(oc get nodes | grep -v master | grep -v worker-lb | grep ^worker | awk '{print $1}')
+    workers=$(oc get nodes | grep -v master | grep -v worker-lb | grep -v custom | grep -v NotReady | grep ^worker | awk '{print $1}')
     workers=($workers) # turn it into an array
+    if [[ ${#workers[@]} -lt 1 ]] ; then
+      log "Not enough worker nodes for the testpmd workload available, bailing!"
+      exit 1
+    fi
     while [[ $worker_count -lt 2 ]]; do 
         #worker_ip=$(oc get bmh $worker -n openshift-machine-api -o go-template='{{range .status.hardware.nics}}{{.name}}{{" "}}{{.ip}}{{"\n"}}{{end}}' | grep 192)
 	worker=${workers[$worker_count]}
@@ -119,6 +123,8 @@ deploy_perf_profile() {
         # also get the CPU alignment
         numa_nodes_0=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node0' | cut -d ':' -f 2")
         numa_nodes_1=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node1' | cut -d ':' -f 2" )
+	echo numa_nodes_0 $numa_nodes_0
+	echo numa_nodes_1 $numa_nodes_1
   done
 
   # check if the entries in nic_numa are all identical
@@ -138,13 +144,15 @@ deploy_perf_profile() {
   for entry in $(IFS=','; echo $numa_nodes_1); do
     cpus_1+=($entry)
   done
+  echo cpus_0 ${cpus_0[@]}
+  echo cpus_1 ${cpus_1[@]}
 
   # numa node is 0
   if [[ $numa_node == 0 ]]; then
     # all cpus in cpus_0 - 2 for housekeeping go to isolated
     num_cpus=${#cpus_0[@]}
     count=0
-    max=$(($num_cpus / 2))
+    max=$((($num_cpus -8) / 2))
     max_isol=$((max -2))
     for cpu in ${cpus_0[@]}; do
       if [ $count -le $max_isol ]; then
@@ -160,7 +168,7 @@ deploy_perf_profile() {
     # add the remaining CPUs to reserved
     num_cpus=${#cpus_1[@]}
     count=0
-    max=$(($num_cpus / 2))
+    max=$((($num_cpus -8) / 2))
     for cpu in ${cpus_1[@]}; do
       if [ $count -le $max ] ; then
         # add the cpu to the isolated nodes
@@ -171,12 +179,15 @@ deploy_perf_profile() {
       fi
       count=$((count+1))
     done
+
   # numa node is 1
   elif [[ $numa_node == 1 ]]; then
     # all cpus in cpus_1 - 2 for housekeeping go to isolated
+    echo numa node is 1
     num_cpus=${#cpus_1[@]}
     count=0
-    max=$(($num_cpus / 2))
+    max=$((($num_cpus -8) / 2))
+    echo max is $max
     max_isol=$((max - 2))
     for cpu in ${cpus_1[@]}; do
       if [ $count -le $max_isol ]; then
@@ -188,11 +199,13 @@ deploy_perf_profile() {
       fi
         count=$((count+1))
     done
+    echo isolated ${isolated[@]}
+    echo reserved ${reserved[@]}
 
     # add the remaining CPUs to reserved
     num_cpus=${#cpus_0[@]}
     count=0
-    max=$(($num_cpus / 2))
+    max=$((($num_cpus -8) / 2))
     echo max: $max
     for cpu in ${cpus_0[@]}; do
       if [ $count -le $max ] ; then
@@ -203,8 +216,8 @@ deploy_perf_profile() {
       fi
       count=$((count+1))
     done
-    #echo reserved ${reserved[@]}
-    #echo isolated ${isolated[@]}
+    echo isolated ${isolated[@]}
+    echo reserved ${reserved[@]}
   fi
 
   # templatize the perf profile and the sriov network node policy
@@ -242,7 +255,9 @@ deploy_perf_profile() {
   profile=$(oc get performanceprofile benchmark-performance-profile-0 --no-headers)
   if [ $? -ne 0 ] ; then
     log "PerformanceProfile not found, creating it"
+    #envsubst < $PFP > /tmp/profile.yaml
     envsubst < $PFP | oc apply -f -
+    #oc apply -f pao.yaml
     if [ $? -ne 0 ] ; then
       # something when wrong with the perfProfile, bailing out
       log "Couldn't apply the performance profile, exiting!"
