@@ -123,8 +123,8 @@ deploy_perf_profile() {
         # also get the CPU alignment
         numa_nodes_0=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node0' | cut -d ':' -f 2")
         numa_nodes_1=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node1' | cut -d ':' -f 2" )
-	echo numa_nodes_0 $numa_nodes_0
-	echo numa_nodes_1 $numa_nodes_1
+	#echo numa_nodes_0 $numa_nodes_0
+	#echo numa_nodes_1 $numa_nodes_1
   done
 
   # check if the entries in nic_numa are all identical
@@ -133,7 +133,7 @@ deploy_perf_profile() {
 	  numa_node=${nic_numa[0]}
 	  export numa_node=$numa_node
   else
-          echo "The numa_nodes for the selected NICs are different, bailing out!"
+          log "The numa_nodes for the selected NICs are different, bailing out!"
           exit 1
   fi
    
@@ -183,11 +183,11 @@ deploy_perf_profile() {
   # numa node is 1
   elif [[ $numa_node == 1 ]]; then
     # all cpus in cpus_1 - 2 for housekeeping go to isolated
-    echo numa node is 1
+    #echo numa node is 1
     num_cpus=${#cpus_1[@]}
     count=0
     max=$((($num_cpus -8) / 2))
-    echo max is $max
+    #echo max is $max
     max_isol=$((max - 2))
     for cpu in ${cpus_1[@]}; do
       if [ $count -le $max_isol ]; then
@@ -199,14 +199,14 @@ deploy_perf_profile() {
       fi
         count=$((count+1))
     done
-    echo isolated ${isolated[@]}
-    echo reserved ${reserved[@]}
+    #echo isolated ${isolated[@]}
+    #echo reserved ${reserved[@]}
 
     # add the remaining CPUs to reserved
     num_cpus=${#cpus_0[@]}
     count=0
     max=$((($num_cpus -8) / 2))
-    echo max: $max
+    #echo max: $max
     for cpu in ${cpus_0[@]}; do
       if [ $count -le $max ] ; then
       # add the cpu to the reserved nodes
@@ -216,8 +216,8 @@ deploy_perf_profile() {
       fi
       count=$((count+1))
     done
-    echo isolated ${isolated[@]}
-    echo reserved ${reserved[@]}
+    #echo isolated ${isolated[@]}
+    #echo reserved ${reserved[@]}
   fi
 
   # templatize the perf profile and the sriov network node policy
