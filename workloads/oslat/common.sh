@@ -237,9 +237,9 @@ delete_benchmark() {
 }
 
 update() {
-  benchmark_state=$(oc get benchmarks.ripsaw.cloudbulldozer.io/cyclictest -n benchmark-operator -o jsonpath='{.status.state}')
-  benchmark_uuid=$(oc get benchmarks.ripsaw.cloudbulldozer.io/cyclictest -n benchmark-operator -o jsonpath='{.status.uuid}')
-  benchmark_current_pair=$(oc get benchmarks.ripsaw.cloudbulldozer.io/cyclictest -n benchmark-operator -o jsonpath='{.spec.workload.args.pair}')
+  benchmark_state=$(oc get benchmarks.ripsaw.cloudbulldozer.io/oslat -n benchmark-operator -o jsonpath='{.status.state}')
+  benchmark_uuid=$(oc get benchmarks.ripsaw.cloudbulldozer.io/oslat -n benchmark-operator -o jsonpath='{.status.uuid}')
+  benchmark_current_pair=$(oc get benchmarks.ripsaw.cloudbulldozer.io/oslat -n benchmark-operator -o jsonpath='{.spec.workload.args.pair}')
 }
 
 print_uuid() {
@@ -259,6 +259,6 @@ init_cleanup
 check_cluster_health
 deploy_perf_profile
 deploy_operator
-deploy_workload
+#deploy_workload
 wait_for_benchmark
 
