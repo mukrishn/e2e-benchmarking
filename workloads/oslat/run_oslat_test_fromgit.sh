@@ -3,8 +3,8 @@ export WORKLOAD=oslat
 
 source ./common.sh
 
-deploy_workload
-wait_for_benchmark
+#deploy_workload
+#wait_for_benchmark
 assign_uuid
 #run_benchmark_comparison
 print_uuid
