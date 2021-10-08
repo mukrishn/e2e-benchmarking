@@ -177,12 +177,12 @@ deploy_workload() {
 }
 
 check_logs_for_errors() {
-client_pod=$(oc get pods -n benchmark-operator --no-headers | awk '{print $1}' | grep trex-traffic-gen | awk 'NR==1{print $1}')
+client_pod=$(oc get pods -n benchmark-operator --no-headers | awk '{print $1}' | grep cyclictest | awk 'NR==1{print $1}')
 if [ ! -z "$client_pod" ]; then
   num_critical=$(oc logs ${client_pod} -n benchmark-operator | grep CRITICAL | wc -l)
   if [ $num_critical -gt 3 ] ; then
-    log "Encountered CRITICAL condition more than 3 times in trex-traffic-gen pod  logs"
-    log "Log dump of trex-traffic-gen pod"
+    log "Encountered CRITICAL condition more than 3 times in cyclictest logs"
+    log "Log dump of cyclictest pod"
     oc logs $client_pod -n benchmark-operator
     delete_benchmark
     exit 1

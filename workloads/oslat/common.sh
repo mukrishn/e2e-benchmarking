@@ -172,6 +172,20 @@ deploy_workload() {
   sleep 60
 }
 
+check_logs_for_errors() {
+client_pod=$(oc get pods -n benchmark-operator --no-headers | awk '{print $1}' | grep oslat | awk 'NR==1{print $1}')
+if [ ! -z "$client_pod" ]; then
+  num_critical=$(oc logs ${client_pod} -n benchmark-operator | grep CRITICAL | wc -l)
+  if [ $num_critical -gt 3 ] ; then
+    log "Encountered CRITICAL condition more than 3 times in oslat pod logs"
+    log "Log dump of oslat pod"
+    oc logs $client_pod -n benchmark-operator
+    delete_benchmark
+    exit 1
+  fi
+fi
+}
+
 wait_for_benchmark() {
   oslat_state=1
   for i in {1..480}; do # 2hours
