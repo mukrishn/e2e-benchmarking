@@ -129,16 +129,19 @@ deploy_perf_profile() {
         log "Couldn't apply the performance profile, exiting!"
         exit 1
       fi
-      # We need to wait for the nodes with the perfProfile applied to to reboot
-      log "Sleeping for 60 seconds"
+    fi
+    # We need to wait for the nodes with the perfProfile applied to to reboot
+    # this is a catchall approach, we sleep for 60 seconds and check the status of the nodes
+    # if they're ready we'll continue. Should the performance profile require reboots, that will have
+    # started within the 60 seconds
+    log "Sleeping for 60 seconds"
+    sleep 60
+    readycount=$(oc get mcp worker-rt --no-headers | awk '{print $7}')
+    while [[ $readycount -ne 2 ]]; do
+      log "Waiting for -rt nodes to become ready again, sleeping 1 minute"
       sleep 60
       readycount=$(oc get mcp worker-rt --no-headers | awk '{print $7}')
-      while [[ $readycount -ne 2 ]]; do
-        log "Waiting for -rt nodes to become ready again, sleeping 1 minute"
-        sleep 60
-        readycount=$(oc get mcp worker-rt --no-headers | awk '{print $7}')
-      done
-    fi
+    done
   fi
 }
 
