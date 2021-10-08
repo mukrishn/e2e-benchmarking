@@ -273,6 +273,4 @@ init_cleanup
 check_cluster_health
 deploy_perf_profile
 deploy_operator
-#deploy_workload
-wait_for_benchmark
 
