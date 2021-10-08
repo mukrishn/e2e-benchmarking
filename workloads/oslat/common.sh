@@ -195,6 +195,27 @@ wait_for_benchmark() {
   fi
 }
 
+assign_uuid() {
+  update
+  compare_testpmd_uuid=${benchmark_uuid}
+  if [[ ${COMPARE} == "true" ]] ; then
+    echo ${baseline_testpmd_uuid},${compare_testpmd_uuid} >> uuid.txt
+  else
+    echo ${compare_testpmd_uuid} >> uuid.txt
+  fi
+}
+
+run_benchmark_comparison() {
+  log "Beginning benchmark comparison"
+  ../../utils/touchstone-compare/run_compare.sh testpmd ${baseline_testpmd_uuid} ${compare_testpmd_uuid}
+  log "Finished benchmark comparison"
+  }
+
+generate_csv() {
+  log "Generating CSV"
+  # tbd
+}
+
 init_cleanup() {
   if [[ "${isBareMetal}" == "false" ]]; then
     log "Cloning benchmark-operator from branch ${operator_branch} of ${operator_repo}"
@@ -208,6 +229,10 @@ init_cleanup() {
   fi
 }
 
+delete_benchmark() {
+  oc delete benchmarks.ripsaw.cloudbulldozer.io/oslat -n benchmark-operator
+}
+
 export TERM=screen-256color
 bold=$(tput bold)
 uline=$(tput smul)
@@ -219,3 +244,6 @@ init_cleanup
 check_cluster_health
 deploy_perf_profile
 deploy_operator
+deploy_workload
+wait_for_benchmark
+
