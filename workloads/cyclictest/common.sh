@@ -76,7 +76,7 @@ export_defaults() {
 
 deploy_perf_profile() {
   if [[ $(oc get performanceprofile --no-headers | awk '{print $1}') == "benchmark-performance-profile-0" ]]; then
-    log "Performance profile already exists. Applying the oslat profile"
+    log "Performance profile already exists. Applying the cyclictest profile"
     oc apply -f perf_profile.yaml
     if [ $? -ne 0 ]; then
       log "Couldn't apply performance profile, exiting!"
@@ -84,17 +84,18 @@ deploy_perf_profile() {
     fi
   else 
     if [[ "${baremetalCheck}" == '"BareMetal"' ]]; then
-      log "Trying to find 2 suitable nodes only for testpmd"
-      # iterate over worker nodes until we have at least 2 
+      log "Trying to find a suitable node for testpmd"
+      # iterate over worker nodes until we have at least 1 
       worker_count=0
       testpmd_workers=()
       workers=$(oc get bmh -n openshift-machine-api | grep worker | awk '{print $1}')
-      until [ $worker_count -eq 2 ]; do
+      until [ $worker_count -eq 1 ]; do
         for worker in $workers; do
     	  worker_ip=$(oc get node $worker -o json | jq -r ".status.addresses[0].addres" | grep 192 )
           if [[ ! -z "$worker_ip" ]]; then 
             testpmd_workers+=( $worker )
   	    ((worker_count=worker_count+1))
+	    export nodeselector=$worker
           fi
         done
       done

@@ -81,17 +81,18 @@ deploy_perf_profile() {
     fi
   else
     if [[ "${baremetalCheck}" == '"BareMetal"' ]]; then
-      log "Trying to find 2 suitable nodes only for oslat"
+      log "Trying to find a suitable node for oslat"
       # iterate over worker nodes bareMetalHandles until we have 2
       worker_count=0
       oslat_workers=()
       workers=$(oc get nodes | grep ^worker | awk '{print $1}')
-      until [ $worker_count -eq 2 ]; do
+      until [ $worker_count -eq 1 ]; do
         for worker in $workers; do
           #worker_ip=$(oc get bmh $worker -n openshift-machine-api -o go-template='{{range .status.hardware.nics}}{{.name}}{{" "}}{{.ip}}{{"\n"}}{{end}}' | grep 192)
        	  worker_ip=$(oc get node $worker -o json | jq -r ".status.addresses[0].address" | grep 192 )
           if [[ ! -z "$worker_ip" ]]; then
             oslat_workers+=( $worker )
+	    export node_selector=$worker
             ((worker_count=worker_count+1))
           fi
         done
