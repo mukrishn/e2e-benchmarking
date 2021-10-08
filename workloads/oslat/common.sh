@@ -233,6 +233,18 @@ delete_benchmark() {
   oc delete benchmarks.ripsaw.cloudbulldozer.io/oslat -n benchmark-operator
 }
 
+update() {
+  benchmark_state=$(oc get benchmarks.ripsaw.cloudbulldozer.io/cyclictest -n benchmark-operator -o jsonpath='{.status.state}')
+  benchmark_uuid=$(oc get benchmarks.ripsaw.cloudbulldozer.io/cyclictest -n benchmark-operator -o jsonpath='{.status.uuid}')
+  benchmark_current_pair=$(oc get benchmarks.ripsaw.cloudbulldozer.io/cyclictest -n benchmark-operator -o jsonpath='{.spec.workload.args.pair}')
+}
+
+print_uuid() {
+  log "Logging uuid.txt"
+  cat uuid.txt
+}
+
+
 export TERM=screen-256color
 bold=$(tput bold)
 uline=$(tput smul)
