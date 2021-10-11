@@ -76,7 +76,7 @@ export_defaults() {
 
 deploy_perf_profile() {
   if [[ $(oc get performanceprofile --no-headers | awk '{print $1}') == "benchmark-performance-profile-0" ]]; then
-    log "Performance profile already exists. Applying the oslat profile"
+    log "Performance profile already exists. Applying the cyclictest profile"
     oc apply -f perf_profile.yaml
     if [ $? -ne 0 ]; then
       log "Couldn't apply performance profile, exiting!"
@@ -84,17 +84,18 @@ deploy_perf_profile() {
     fi
   else 
     if [[ "${baremetalCheck}" == '"BareMetal"' ]]; then
-      log "Trying to find 2 suitable nodes only for testpmd"
-      # iterate over worker nodes until we have at least 2 
+      log "Trying to find a suitable node for testpmd"
+      # iterate over worker nodes until we have at least 1 
       worker_count=0
       testpmd_workers=()
       workers=$(oc get bmh -n openshift-machine-api | grep worker | awk '{print $1}')
-      until [ $worker_count -eq 2 ]; do
+      until [ $worker_count -eq 1 ]; do
         for worker in $workers; do
     	  worker_ip=$(oc get node $worker -o json | jq -r ".status.addresses[0].addres" | grep 192 )
           if [[ ! -z "$worker_ip" ]]; then 
             testpmd_workers+=( $worker )
   	    ((worker_count=worker_count+1))
+	    export nodeselector=$worker
           fi
         done
       done
@@ -131,18 +132,21 @@ deploy_perf_profile() {
         log "Couldn't apply the performance profile, exiting!"
         exit 1
       fi
-      # We need to wait for the nodes with the perfProfile applied to to reboot
-      log "Sleeping for 60 seconds"
+    fi
+    # We need to wait for the nodes with the perfProfile applied to to reboot
+    # this is a catchall approach, we sleep for 60 seconds and check the status of the nodes 
+    # if they're ready we'll continue. Should the performance profile require reboots, that will have
+    # started within the 60 seconds 
+    log "Sleeping for 60 seconds"
+    sleep 60
+    readycount=$(oc get mcp worker-rt --no-headers | awk '{print $7}')
+    while [[ $readycount -ne 2 ]]; do
+      log "Waiting for -rt nodes to become ready again, sleeping 1 minute"
       sleep 60
       readycount=$(oc get mcp worker-rt --no-headers | awk '{print $7}')
-      while [[ $readycount -ne 2 ]]; do
-        log "Waiting for -rt nodes to become ready again, sleeping 1 minute"
-        sleep 60
-        readycount=$(oc get mcp worker-rt --no-headers | awk '{print $7}')
-      done
-    fi
-  }
+    done
   fi
+}
 
 deploy_operator() {
   if [[ "${isBareMetal}" == "false" ]]; then
@@ -173,12 +177,12 @@ deploy_workload() {
 }
 
 check_logs_for_errors() {
-client_pod=$(oc get pods -n benchmark-operator --no-headers | awk '{print $1}' | grep trex-traffic-gen | awk 'NR==1{print $1}')
+client_pod=$(oc get pods -n benchmark-operator --no-headers | awk '{print $1}' | grep cyclictest | awk 'NR==1{print $1}')
 if [ ! -z "$client_pod" ]; then
   num_critical=$(oc logs ${client_pod} -n benchmark-operator | grep CRITICAL | wc -l)
   if [ $num_critical -gt 3 ] ; then
-    log "Encountered CRITICAL condition more than 3 times in trex-traffic-gen pod  logs"
-    log "Log dump of trex-traffic-gen pod"
+    log "Encountered CRITICAL condition more than 3 times in cyclictest logs"
+    log "Log dump of cyclictest pod"
     oc logs $client_pod -n benchmark-operator
     delete_benchmark
     exit 1
@@ -272,4 +276,5 @@ init_cleanup
 check_cluster_health
 deploy_perf_profile
 deploy_operator
-
+deploy_workload
+wait_for_benchmark

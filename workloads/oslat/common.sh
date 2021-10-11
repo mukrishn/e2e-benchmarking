@@ -81,17 +81,18 @@ deploy_perf_profile() {
     fi
   else
     if [[ "${baremetalCheck}" == '"BareMetal"' ]]; then
-      log "Trying to find 2 suitable nodes only for oslat"
+      log "Trying to find a suitable node for oslat"
       # iterate over worker nodes bareMetalHandles until we have 2
       worker_count=0
       oslat_workers=()
       workers=$(oc get nodes | grep ^worker | awk '{print $1}')
-      until [ $worker_count -eq 2 ]; do
+      until [ $worker_count -eq 1 ]; do
         for worker in $workers; do
           #worker_ip=$(oc get bmh $worker -n openshift-machine-api -o go-template='{{range .status.hardware.nics}}{{.name}}{{" "}}{{.ip}}{{"\n"}}{{end}}' | grep 192)
        	  worker_ip=$(oc get node $worker -o json | jq -r ".status.addresses[0].address" | grep 192 )
           if [[ ! -z "$worker_ip" ]]; then
             oslat_workers+=( $worker )
+	    export node_selector=$worker
             ((worker_count=worker_count+1))
           fi
         done
@@ -128,16 +129,19 @@ deploy_perf_profile() {
         log "Couldn't apply the performance profile, exiting!"
         exit 1
       fi
-      # We need to wait for the nodes with the perfProfile applied to to reboot
-      log "Sleeping for 60 seconds"
+    fi
+    # We need to wait for the nodes with the perfProfile applied to to reboot
+    # this is a catchall approach, we sleep for 60 seconds and check the status of the nodes
+    # if they're ready we'll continue. Should the performance profile require reboots, that will have
+    # started within the 60 seconds
+    log "Sleeping for 60 seconds"
+    sleep 60
+    readycount=$(oc get mcp worker-rt --no-headers | awk '{print $7}')
+    while [[ $readycount -ne 2 ]]; do
+      log "Waiting for -rt nodes to become ready again, sleeping 1 minute"
       sleep 60
       readycount=$(oc get mcp worker-rt --no-headers | awk '{print $7}')
-      while [[ $readycount -ne 2 ]]; do
-        log "Waiting for -rt nodes to become ready again, sleeping 1 minute"
-        sleep 60
-        readycount=$(oc get mcp worker-rt --no-headers | awk '{print $7}')
-      done
-    fi
+    done
   fi
 }
 
@@ -168,6 +172,20 @@ deploy_workload() {
   sleep 60
 }
 
+check_logs_for_errors() {
+client_pod=$(oc get pods -n benchmark-operator --no-headers | awk '{print $1}' | grep oslat | awk 'NR==1{print $1}')
+if [ ! -z "$client_pod" ]; then
+  num_critical=$(oc logs ${client_pod} -n benchmark-operator | grep CRITICAL | wc -l)
+  if [ $num_critical -gt 3 ] ; then
+    log "Encountered CRITICAL condition more than 3 times in oslat pod logs"
+    log "Log dump of oslat pod"
+    oc logs $client_pod -n benchmark-operator
+    delete_benchmark
+    exit 1
+  fi
+fi
+}
+
 wait_for_benchmark() {
   oslat_state=1
   for i in {1..480}; do # 2hours
@@ -194,6 +212,27 @@ wait_for_benchmark() {
   fi
 }
 
+assign_uuid() {
+  update
+  compare_testpmd_uuid=${benchmark_uuid}
+  if [[ ${COMPARE} == "true" ]] ; then
+    echo ${baseline_testpmd_uuid},${compare_testpmd_uuid} >> uuid.txt
+  else
+    echo ${compare_testpmd_uuid} >> uuid.txt
+  fi
+}
+
+run_benchmark_comparison() {
+  log "Beginning benchmark comparison"
+  ../../utils/touchstone-compare/run_compare.sh testpmd ${baseline_testpmd_uuid} ${compare_testpmd_uuid}
+  log "Finished benchmark comparison"
+  }
+
+generate_csv() {
+  log "Generating CSV"
+  # tbd
+}
+
 init_cleanup() {
   if [[ "${isBareMetal}" == "false" ]]; then
     log "Cloning benchmark-operator from branch ${operator_branch} of ${operator_repo}"
@@ -207,6 +246,22 @@ init_cleanup() {
   fi
 }
 
+delete_benchmark() {
+  oc delete benchmarks.ripsaw.cloudbulldozer.io/oslat -n benchmark-operator
+}
+
+update() {
+  benchmark_state=$(oc get benchmarks.ripsaw.cloudbulldozer.io/oslat -n benchmark-operator -o jsonpath='{.status.state}')
+  benchmark_uuid=$(oc get benchmarks.ripsaw.cloudbulldozer.io/oslat -n benchmark-operator -o jsonpath='{.status.uuid}')
+  benchmark_current_pair=$(oc get benchmarks.ripsaw.cloudbulldozer.io/oslat -n benchmark-operator -o jsonpath='{.spec.workload.args.pair}')
+}
+
+print_uuid() {
+  log "Logging uuid.txt"
+  cat uuid.txt
+}
+
+
 export TERM=screen-256color
 bold=$(tput bold)
 uline=$(tput smul)
@@ -218,3 +273,4 @@ init_cleanup
 check_cluster_health
 deploy_perf_profile
 deploy_operator
+

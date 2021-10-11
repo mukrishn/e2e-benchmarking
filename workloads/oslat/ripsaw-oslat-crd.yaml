@@ -11,6 +11,7 @@ spec:
   workload:
     name: "oslat"
     args:
+      node_selector: $nodeselector
       runtime: ${RUNTIME}
       disable_cpu_balance: ${DISABLE_CPU_BALANCE}
       use_taskset: ${USE_TASKSET}

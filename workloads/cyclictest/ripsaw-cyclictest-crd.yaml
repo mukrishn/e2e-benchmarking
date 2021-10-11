@@ -9,6 +9,7 @@ spec:
   workload:
     name: "cyclictest"
     args:
+      nodeSelector: $nodeselector
       duration: ${DURATION}
       disable_cpu_balance: ${DISABLE_CPU_BALANCE}
       stressng: ${STRESSNG}
