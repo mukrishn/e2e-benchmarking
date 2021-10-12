@@ -95,7 +95,7 @@ deploy_perf_profile() {
           if [[ ! -z "$worker_ip" ]]; then 
             testpmd_workers+=( $worker )
   	    ((worker_count=worker_count+1))
-	    export nodeselector=$worker
+	    #export nodeselector=$worker
           fi
         done
       done
