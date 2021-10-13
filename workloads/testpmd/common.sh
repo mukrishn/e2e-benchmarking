@@ -251,19 +251,18 @@ deploy_perf_profile() {
   fi
 
   # apply the performanceProfile
-  log "Applying the performanceProfile if it doesn't exist yet"
-  profile=$(oc get performanceprofile benchmark-performance-profile-0 --no-headers)
+  log "Applying the performanceProfile"
+  #profile=$(oc get performanceprofile benchmark-performance-profile-0 --no-headers)
+  #if [ $? -ne 0 ] ; then
+  #  log "PerformanceProfile not found, creating it"
+  #envsubst < $PFP > /tmp/profile.yaml
+  envsubst < $PFP | oc apply -f -
   if [ $? -ne 0 ] ; then
-    log "PerformanceProfile not found, creating it"
-    #envsubst < $PFP > /tmp/profile.yaml
-    envsubst < $PFP | oc apply -f -
-    #oc apply -f pao.yaml
-    if [ $? -ne 0 ] ; then
-      # something when wrong with the perfProfile, bailing out
-      log "Couldn't apply the performance profile, exiting!"
-      exit 1
-    fi
+    # something when wrong with the perfProfile, bailing out
+    log "Couldn't apply the performance profile, exiting!"
+    exit 1
   fi
+  
   # We need to wait for the nodes with the perfProfile applied to to reboot
   # this is a catchall approach, we sleep for 60 seconds and check the status of the nodes
   # if they're ready, we'll continue. Should the performance profile require reboots, that will have
@@ -458,4 +457,5 @@ deploy_perf_profile
 deploy_operator
 deploy_workload
 wait_for_benchmark
+delete_benchmark
 #cleanup_network
