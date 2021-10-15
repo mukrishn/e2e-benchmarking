@@ -41,7 +41,7 @@ export_defaults() {
       export server=$(oc get node -l node-role.kubernetes.io/worker,node-role.kubernetes.io/workload!="",node-role.kubernetes.io/infra!="",topology.kubernetes.io/zone=${zones[0]} -o jsonpath='{range .items[*]}{ .metadata.labels.kubernetes\.io/hostname}{"\n"}{end}' | head -n1)
       export client=$(oc get node -l node-role.kubernetes.io/worker,node-role.kubernetes.io/workload!="",node-role.kubernetes.io/infra!="",topology.kubernetes.io/zone=${zones[1]} -o jsonpath='{range .items[*]}{ .metadata.labels.kubernetes\.io/hostname}{"\n"}{end}' | tail -n1)
     else
-      log "At least 2 worker nodes are required"
+      log "At least 2 worker nodes placed in different topology zones are required"
       exit 1
     fi
   # If MULTI_AZ is disabled we use the two first nodes from the first AZ
@@ -55,7 +55,9 @@ export_defaults() {
       export server=${nodes[0]}
       export client=${nodes[1]}
     fi
-    log "Finished assigning server and client nodes"
+    log "Colocating uperf pods in the same AZ"
+    export server=${nodes[0]}
+    export client=${nodes[1]}
   fi
 
   if [ ${WORKLOAD} == "hostnet" ]
@@ -109,14 +111,8 @@ export_defaults() {
 deploy_operator() {
   deploy_benchmark_operator ${OPERATOR_REPO} ${OPERATOR_BRANCH}
   rm -rf benchmark-operator
-<<<<<<< HEAD
   git clone --single-branch --branch ${OPERATOR_BRANCH} ${OPERATOR_REPO} --depth 1
   kubectl apply -f benchmark-operator/resources/backpack_role.yaml
-=======
-  git clone --single-branch --branch ${operator_branch} ${operator_repo} --depth 1
-  (cd benchmark-operator && make deploy)
-  oc wait --for=condition=available "deployment/benchmark-controller-manager" -n benchmark-operator --timeout=300s
->>>>>>> 59af82b (Updated workloads to run on baremetal)
   oc adm policy -n benchmark-operator add-scc-to-user privileged -z benchmark-operator
   oc adm policy -n benchmark-operator add-scc-to-user privileged -z backpack-view
   oc patch scc restricted --type=merge -p '{"allowHostNetwork": true}'
@@ -166,16 +162,12 @@ assign_uuid() {
 }
 
 run_benchmark_comparison() {
-  log "Begining benchamrk comparison"
   ../../utils/touchstone-compare/run_compare.sh uperf ${baseline_uperf_uuid} ${compare_uperf_uuid} ${pairs}
   pairs_array=( "${pairs_array[@]}" "compare_output_${pairs}.yaml" )
-  log "Finished benchmark comparison"
 }
 
 generate_csv() {
-  log "Generating CSV"
   python3 csv_gen.py --files $(echo "${pairs_array[@]}") --latency_tolerance=$latency_tolerance --throughput_tolerance=$throughput_tolerance  
-  log "Finished generating CSV"
 }
 
 
@@ -184,6 +176,7 @@ get_gold_ocp_version(){
   export GOLD_OCP_VERSION=$( bc <<< "$current_version - 0.1" )
 }
 
+<<<<<<< HEAD
 snappy_backup(){
   log "Snappy server as backup enabled"
   source ../../utils/snappy-move-results/common.sh
@@ -197,6 +190,10 @@ snappy_backup(){
   ../../utils/snappy-move-results/run_snappy.sh metadata.json $snappy_path
   store_on_elastic
   rm -rf files_list
+=======
+print_uuid() {
+  cat uuid.txt
+>>>>>>> 95f2943 (Update common.sh)
 }
 
 export TERM=screen-256color
@@ -204,3 +201,15 @@ python3 -m pip install -r requirements.txt | grep -v 'already satisfied'
 export_defaults
 check_cluster_health
 deploy_operator
+© 2021 GitHub, Inc.
+Terms
+Privacy
+Security
+Status
+Docs
+Contact GitHub
+Pricing
+API
+Training
+Blog
+About
