@@ -201,15 +201,4 @@ python3 -m pip install -r requirements.txt | grep -v 'already satisfied'
 export_defaults
 check_cluster_health
 deploy_operator
-© 2021 GitHub, Inc.
-Terms
-Privacy
-Security
-Status
-Docs
-Contact GitHub
-Pricing
-API
-Training
-Blog
-About
+
