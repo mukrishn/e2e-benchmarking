@@ -168,7 +168,7 @@ deploy_perf_profile() {
     max=$((($num_cpus -8) / 2))
     for cpu in ${cpus_1[@]}; do
       if [ $count -le $max ] ; then
-        # add the cpu to the isolated nodes
+        # add the cpu to the reserved nodes
         reserved+=($cpu)
       fi
       count=$((count+1))
