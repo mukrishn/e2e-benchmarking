@@ -95,15 +95,14 @@ deploy_perf_profile() {
     log "Trying to find 2 suitable nodes only for testpmd"
     # iterate over worker nodes bareMetalHandles until we have at least 2 
     worker_count=0
-    #workers=$(oc get bmh -n openshift-machine-api | grep worker | awk '{print $1}')
     workers=$(oc get nodes | grep -v master | grep -v worker-lb | grep -v custom | grep -v NotReady | grep ^worker | awk '{print $1}')
-    workers=($workers) # turn it into an array
+    # turn it into an array
+    workers=($workers) 
     if [[ ${#workers[@]} -lt 1 ]] ; then
       log "Not enough worker nodes for the testpmd workload available, bailing!"
       exit 1
     fi
     while [[ $worker_count -lt 2 ]]; do 
-        #worker_ip=$(oc get bmh $worker -n openshift-machine-api -o go-template='{{range .status.hardware.nics}}{{.name}}{{" "}}{{.ip}}{{"\n"}}{{end}}' | grep 192)
 	worker=${workers[$worker_count]}
 	worker_ip=$(oc get node ${workers[$worker_count]} -o json | jq -r ".status.addresses[0].address" | grep 192 )
         if [[ ! -z "$worker_ip" ]]; then 
@@ -119,12 +118,11 @@ deploy_perf_profile() {
 	export sriov_nic=$nic
 	log "Getting the NUMA zones for the NICs"
 	nic_numa+=($(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "cat /sys/class/net/"$nic"/device/numa_node"))
-        #echo niclist ${niclist[@]}
         # also get the CPU alignment
         numa_nodes_0=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node0' | cut -d ':' -f 2")
+	log "numa_nodes_0: $numa_nodes_0"
         numa_nodes_1=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node1' | cut -d ':' -f 2" )
-	#echo numa_nodes_0 $numa_nodes_0
-	#echo numa_nodes_1 $numa_nodes_1
+	log "numa_nodes_1: $numa_nodes_1"
   done
 
   # check if the entries in nic_numa are all identical
@@ -144,12 +142,11 @@ deploy_perf_profile() {
   for entry in $(IFS=','; echo $numa_nodes_1); do
     cpus_1+=($entry)
   done
-  echo cpus_0 ${cpus_0[@]}
-  echo cpus_1 ${cpus_1[@]}
 
   # numa node is 0
   if [[ $numa_node == 0 ]]; then
     # all cpus in cpus_0 - 2 for housekeeping go to isolated
+    log "Numa node is 0"
     num_cpus=${#cpus_0[@]}
     count=0
     max=$((($num_cpus -8) / 2))
@@ -162,7 +159,7 @@ deploy_perf_profile() {
         # add the cpu to the reserved nodes
         reserved+=($cpu)
       fi
-      count=$((count+1))
+        count=$((count+1))
     done
 
     # add the remaining CPUs to reserved
@@ -171,19 +168,17 @@ deploy_perf_profile() {
     max=$((($num_cpus -8) / 2))
     for cpu in ${cpus_1[@]}; do
       if [ $count -le $max ] ; then
-        # add the cpu to the isolated nodes
-        isolated+=($cpu)
-      else
         # add the cpu to the reserved nodes
         reserved+=($cpu)
       fi
       count=$((count+1))
     done
+  fi
 
   # numa node is 1
-  elif [[ $numa_node == 1 ]]; then
+  if [[ $numa_node == 1 ]]; then
     # all cpus in cpus_1 - 2 for housekeeping go to isolated
-    #echo numa node is 1
+    log "Numa node is 1"
     num_cpus=${#cpus_1[@]}
     count=0
     max=$((($num_cpus -8) / 2))
@@ -199,8 +194,6 @@ deploy_perf_profile() {
       fi
         count=$((count+1))
     done
-    #echo isolated ${isolated[@]}
-    #echo reserved ${reserved[@]}
 
     # add the remaining CPUs to reserved
     num_cpus=${#cpus_0[@]}
@@ -210,14 +203,10 @@ deploy_perf_profile() {
     for cpu in ${cpus_0[@]}; do
       if [ $count -le $max ] ; then
       # add the cpu to the reserved nodes
-      #echo count: $count
-      #echo adding cpu: $cpu to reserved
       reserved+=($cpu)
       fi
       count=$((count+1))
     done
-    #echo isolated ${isolated[@]}
-    #echo reserved ${reserved[@]}
   fi
 
   # templatize the perf profile and the sriov network node policy
@@ -227,7 +216,6 @@ deploy_perf_profile() {
   export reserved_cpus=$reserved_string
  
   # label the two nodes for the performance profile
-  # https://github.com/cloud-bulldozer/benchmark-operator/blob/master/docs/testpmd.md#sample-pao-configuration
   log "Labeling -rt nodes"
   for w in ${testpmd_workers[@]}; do
     oc label node $w node-role.kubernetes.io/worker-rt="" --overwrite=true
@@ -252,13 +240,8 @@ deploy_perf_profile() {
 
   # apply the performanceProfile
   log "Applying the performanceProfile"
-  #profile=$(oc get performanceprofile benchmark-performance-profile-0 --no-headers)
-  #if [ $? -ne 0 ] ; then
-  #  log "PerformanceProfile not found, creating it"
-  #envsubst < $PFP > /tmp/profile.yaml
   envsubst < $PFP | oc apply -f -
   if [ $? -ne 0 ] ; then
-    # something when wrong with the perfProfile, bailing out
     log "Couldn't apply the performance profile, exiting!"
     exit 1
   fi
@@ -348,7 +331,6 @@ deploy_workload() {
   export PIN_TREX=${testpmd_workers[1]}
   log "Deploying testpmd benchmark"
   envsubst < $CRD | oc apply -f -
-  #envsubst < $CRD > /tmp/testpmd.yaml
   log "Sleeping for 60 seconds"
   sleep 60
 }
@@ -407,7 +389,7 @@ run_benchmark_comparison() {
   log "Beginning benchmark comparison"
   ../../utils/touchstone-compare/run_compare.sh testpmd ${baseline_testpmd_uuid} ${compare_testpmd_uuid} 
   log "Finished benchmark comparison"
-  }
+}
 
 generate_csv() {
   log "Generating CSV"
@@ -442,7 +424,6 @@ print_uuid() {
   cat uuid.txt
 }
 
-testpmd_workers=()
 
 export TERM=screen-256color
 bold=$(tput bold)
@@ -451,11 +432,11 @@ normal=$(tput sgr0)
 python3 -m pip install -r requirements.txt | grep -v 'already satisfied'
 check_cluster_present
 export_defaults
-init_cleanup
+#init_cleanup
 check_cluster_health
 deploy_perf_profile
 deploy_operator
 deploy_workload
 wait_for_benchmark
-delete_benchmark
+#delete_benchmark
 #cleanup_network
