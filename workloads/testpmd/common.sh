@@ -147,6 +147,7 @@ deploy_perf_profile() {
   if [[ $numa_node == 0 ]]; then
     # all cpus in cpus_0 - 2 for housekeeping go to isolated
     log "Numa node is 0"
+    export SOCKET_MEMORY="1024,0"
     num_cpus=${#cpus_0[@]}
     count=0
     max=$((($num_cpus -8) / 2))
@@ -179,6 +180,7 @@ deploy_perf_profile() {
   if [[ $numa_node == 1 ]]; then
     # all cpus in cpus_1 - 2 for housekeeping go to isolated
     log "Numa node is 1"
+    export SOCKET_MEMORY="0,1024"
     num_cpus=${#cpus_1[@]}
     count=0
     max=$((($num_cpus -8) / 2))
