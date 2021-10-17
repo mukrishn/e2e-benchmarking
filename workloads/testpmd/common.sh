@@ -120,7 +120,9 @@ deploy_perf_profile() {
 	nic_numa+=($(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "cat /sys/class/net/"$nic"/device/numa_node"))
         # also get the CPU alignment
         numa_nodes_0=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node0' | cut -d ':' -f 2")
+	log "numa_nodes_0: $numa_nodes_0"
         numa_nodes_1=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node1' | cut -d ':' -f 2" )
+	log "numa_nodes_1: $numa_nodes_1"
   done
 
   # check if the entries in nic_numa are all identical
@@ -144,6 +146,7 @@ deploy_perf_profile() {
   # numa node is 0
   if [[ $numa_node == 0 ]]; then
     # all cpus in cpus_0 - 2 for housekeeping go to isolated
+    log "Numa node is 0"
     num_cpus=${#cpus_0[@]}
     count=0
     max=$((($num_cpus -8) / 2))
@@ -156,7 +159,7 @@ deploy_perf_profile() {
         # add the cpu to the reserved nodes
         reserved+=($cpu)
       fi
-      count=$((count+1))
+        count=$((count+1))
     done
 
     # add the remaining CPUs to reserved
@@ -166,17 +169,16 @@ deploy_perf_profile() {
     for cpu in ${cpus_1[@]}; do
       if [ $count -le $max ] ; then
         # add the cpu to the isolated nodes
-        isolated+=($cpu)
-      else
-        # add the cpu to the reserved nodes
         reserved+=($cpu)
       fi
       count=$((count+1))
     done
+  fi
 
   # numa node is 1
-  elif [[ $numa_node == 1 ]]; then
+  if [[ $numa_node == 1 ]]; then
     # all cpus in cpus_1 - 2 for housekeeping go to isolated
+    log "Numa node is 1"
     num_cpus=${#cpus_1[@]}
     count=0
     max=$((($num_cpus -8) / 2))
