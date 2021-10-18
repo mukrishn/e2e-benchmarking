@@ -120,9 +120,7 @@ deploy_perf_profile() {
 	nic_numa+=($(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "cat /sys/class/net/"$nic"/device/numa_node"))
         # also get the CPU alignment
         numa_nodes_0=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node0' | cut -d ':' -f 2")
-	log "numa_nodes_0: $numa_nodes_0"
         numa_nodes_1=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node1' | cut -d ':' -f 2" )
-	log "numa_nodes_1: $numa_nodes_1"
   done
 
   # check if the entries in nic_numa are all identical
