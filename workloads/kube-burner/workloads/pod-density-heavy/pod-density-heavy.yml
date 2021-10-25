@@ -15,16 +15,19 @@ global:
       pprofInterval: {{ .PPROF_COLLECTION_INTERVAL }}
       pprofDirectory: /tmp/pprof-data
       pprofTargets:
+
       - name: kube-apiserver-cpu
         namespace: "openshift-kube-apiserver"
         labelSelector: {app: openshift-kube-apiserver}
         bearerToken: {{ .BEARER_TOKEN }}
         url: https://localhost:6443/debug/pprof/profile?timeout=30
+
       - name: kube-apiserver-heap
         namespace: "openshift-kube-apiserver"
         labelSelector: {app: openshift-kube-apiserver}
         bearerToken: {{ .BEARER_TOKEN }}
         url: https://localhost:6443/debug/pprof/heap
+
       - name: kube-controller-manager-heap
         namespace: "openshift-kube-controller-manager"
         labelSelector: {app: kube-controller-manager}
@@ -52,12 +55,12 @@ global:
         url: https://localhost:2379/debug/pprof/profile?timeout=30
 {{ end }}
 jobs:
-  - name: node-density
+  - name: pod-density-heavy
     jobIterations: ${TEST_JOB_ITERATIONS}
     qps: ${QPS}
     burst: ${BURST}
     namespacedIterations: false
-    namespace: node-density-${UUID}
+    namespace: pod-density-heavy-${UUID}
     podWait: ${POD_WAIT}
     cleanup: ${CLEANUP}
     waitFor: ${WAIT_FOR}
@@ -70,5 +73,7 @@ jobs:
       - objectTemplate: pod.yml
         replicas: 1
         inputVars:
-          containerImage: gcr.io/google_containers/pause-amd64:3.0
+          containerImage: quay.io/cloud-bulldozer/hello-openshift:latest
           nodeSelector: "${POD_NODE_SELECTOR}"
+          readinessPeriod: 5
+          livenessPeriod: 5
