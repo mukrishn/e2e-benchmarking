@@ -40,8 +40,6 @@ export_defaults() {
   if [[ "${isBareMetal}" == "true" ]]; then
     #Installing python3.8 and setting alternatives
     sudo yum -y install python3.8
-    sudo alternatives --remove-all python
-    sudo alternatives --install /usr/bin/python python /usr/bin/python3.8 1
     
     nodeCount=$(oc get nodes --no-headers -l node-role.kubernetes.io/worker | wc -l)
     if [[ ${nodeCount} -ge 2 ]]; then
