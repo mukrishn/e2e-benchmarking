@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 
 install_cli() {
+  log "installing CLI ................."
   ripsaw_tmp=/tmp/ripsaw-cli
   mkdir -p ${ripsaw_tmp}
   if [[ ! -f ${ripsaw_tmp}/bin/activate ]]; then
       if [[ "${isBareMetal}" == "true" ]]; then
+        log "python 3.8!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         python3.8 -m venv ${ripsaw_tmp}
       else
+        log "Just python!!!!!!!!!!!!!!!!!!!!!!!!!!!"
         python -m venv ${ripsaw_tmp}
       fi
   fi
@@ -26,6 +29,7 @@ remove_cli() {
 #   Benchmark-operator branch
 ############################################################################
 deploy_benchmark_operator() {
+  log "installing CLI ..............."
   install_cli
   ripsaw operator install --repo=${1} --branch=${2}
   deactivate

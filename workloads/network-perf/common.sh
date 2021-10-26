@@ -159,6 +159,7 @@ export_defaults() {
 
 deploy_operator() {
   log "Cloning benchmark-operator from branch ${OPERATOR_BRANCH} of ${OPERATOR_REPO}"
+  log "Deploying benchmark operator......."
   deploy_benchmark_operator ${OPERATOR_REPO} ${OPERATOR_BRANCH}
   rm -rf benchmark-operator
   git clone --single-branch --branch ${OPERATOR_BRANCH} ${OPERATOR_REPO} --depth 1
