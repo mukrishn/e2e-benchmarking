@@ -1,4 +1,5 @@
 source env.sh
+source ../utils/benchmark-operator.sh
 
 # If ES_SERVER is set and empty we disable ES indexing and metadata collection
 if [[ -v ES_SERVER ]] && [[ -z ${ES_SERVER} ]]; then
@@ -146,30 +147,53 @@ deploy_perf_profile() {
 }
 
 deploy_operator() {
-  if [[ "${isBareMetal}" == "false" ]]; then
-    log "Removing benchmark-operator namespace, if it already exists"
-    oc delete namespace benchmark-operator --ignore-not-found
-    log "Cloning benchmark-operator from branch ${operator_branch} of ${operator_repo}"
-  else
-    log "Baremetal infrastructure: Keeping benchmark-operator namespace"
-    log "Cloning benchmark-operator from branch ${operator_branch} of ${operator_repo}"
+  deploy_benchmark_operator ${OPERATOR_REPO} ${OPERATOR_BRANCH}
+  if [[ $? != 0 ]]; then
+     exit 1
   fi
-    rm -rf benchmark-operator  
-    git clone --single-branch --branch ${operator_branch} ${operator_repo} --depth 1
-    (cd benchmark-operator && make deploy)
-    oc wait --for=condition=available "deployment/benchmark-controller-manager" -n benchmark-operator --timeout=300s
-    oc adm policy -n benchmark-operator add-scc-to-user privileged -z benchmark-operator
-    oc adm policy -n benchmark-operator add-scc-to-user privileged -z backpack-view
-    oc patch scc restricted --type=merge -p '{"allowHostNetwork": true}'
+  rm -rf benchmark-operator
+  git clone --single-branch --branch ${OPERATOR_REPO} ${OPERATOR_BRANCH} --depth 1
+  kubectl apply -f benchmark-operator/resources/backpack_role.yaml
+  kubectl apply -f benchmark-operator/resources/kube-burner-role.yml
 }
 
+#deploy_operator() {
+#  if [[ "${isBareMetal}" == "false" ]]; then
+#    log "Removing benchmark-operator namespace, if it already exists"
+#    oc delete namespace benchmark-operator --ignore-not-found
+#    log "Cloning benchmark-operator from branch ${operator_branch} of ${operator_repo}"
+#  else
+#    log "Baremetal infrastructure: Keeping benchmark-operator namespace"
+#    log "Cloning benchmark-operator from branch ${operator_branch} of ${operator_repo}"
+#  fi
+#    rm -rf benchmark-operator  
+#    git clone --single-branch --branch ${operator_branch} ${operator_repo} --depth 1
+#    (cd benchmark-operator && make deploy)
+#    oc wait --for=condition=available "deployment/benchmark-controller-manager" -n benchmark-operator --timeout=300s
+#    oc adm policy -n benchmark-operator add-scc-to-user privileged -z benchmark-operator
+#    oc adm policy -n benchmark-operator add-scc-to-user privileged -z backpack-view
+#    oc patch scc restricted --type=merge -p '{"allowHostNetwork": true}'
+#}
 
-deploy_workload() {
-  log "Deploying cyclictest benchmark"
-  envsubst < $CRD | oc apply -f -
-  log "Sleeping for 60 seconds"
-  sleep 60
+run_workload() {
+  log "Deploying benchmark"
+  local TMPCR=$(mktemp)
+  envsubst < $1 > ${TMPCR}
+  run_benchmark ${TMPCR} ${TEST_TIMEOUT}
+  local rc=$?
+  if [[ ${TEST_CLEANUP} == "true" ]]; then
+    log "Cleaning up benchmark"
+    kubectl delete -f ${TMPCR}
+  fi
+  return ${rc}
 }
+
+#deploy_workload() {
+#  log "Deploying cyclictest benchmark"
+#  envsubst < $CRD | oc apply -f -
+#  log "Sleeping for 60 seconds"
+#  sleep 60
+#}
 
 check_logs_for_errors() {
 client_pod=$(oc get pods -n benchmark-operator --no-headers | awk '{print $1}' | grep cyclictest | awk 'NR==1{print $1}')
@@ -258,5 +282,6 @@ init_cleanup
 check_cluster_health
 deploy_perf_profile
 deploy_operator
-deploy_workload
+#deploy_workload
+run_workload
 wait_for_benchmark
