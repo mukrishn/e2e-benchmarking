@@ -1,5 +1,5 @@
 source env.sh
-source ../utils/benchmark-operator.sh
+source ../../utils/benchmark-operator.sh
 
 # If ES_SERVER is set and empty we disable ES indexing and metadata collection
 if [[ -v ES_SERVER ]] && [[ -z ${ES_SERVER} ]]; then
