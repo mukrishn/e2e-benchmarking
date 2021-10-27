@@ -9,6 +9,7 @@ assign_uuid
 #run_benchmark_comparison
 print_uuid
 #generate_csv
+delete_benchmark
 
 if [[ ${ENABLE_SNAPPY_BACKUP} == "true" ]] ; then
  echo -e "snappy server as backup enabled"

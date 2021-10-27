@@ -4,6 +4,10 @@ export WORKLOAD=cyclictest
 source ./common.sh
 
 #deploy_workload
+run_workload ripsaw-oslat-crd.yaml
+if [[ $? != 0 ]]; then 
+  exit 
+fi
 #wait_for_benchmark
 assign_uuid
 #run_benchmark_comparison

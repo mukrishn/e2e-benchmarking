@@ -88,24 +88,21 @@ deploy_perf_profile() {
       workers=$(oc get nodes | grep ^worker | awk '{print $1}')
       until [ $worker_count -eq 1 ]; do
         for worker in $workers; do
-          #worker_ip=$(oc get bmh $worker -n openshift-machine-api -o go-template='{{range .status.hardware.nics}}{{.name}}{{" "}}{{.ip}}{{"\n"}}{{end}}' | grep 192)
        	  worker_ip=$(oc get node $worker -o json | jq -r ".status.addresses[0].address" | grep 192 )
           if [[ ! -z "$worker_ip" ]]; then
             oslat_workers+=( $worker )
-	    export node_selector=$worker
             ((worker_count=worker_count+1))
           fi
         done
       done
     fi
     # label the two nodes for the performance profile
-    # https://github.com/cloud-bulldozer/benchmark-operator/blob/master/docs/testpmd.md#sample-pao-configuration
     log "Labeling -lat nodes"
     for w in ${oslat_workers[@]}; do
       oc label node $w node-role.kubernetes.io/worker-rt="" --overwrite=true
     done
     # create the machineconfigpool
-    log "Create the MCP"
+    log "Creating the MCP"
     oc create -f machineconfigpool.yaml
     sleep 30
     if [ $? -ne 0 ] ; then
@@ -120,7 +117,7 @@ deploy_perf_profile() {
       exit 1
     fi
     # apply the performanceProfile
-    log "Applying the performanceProfile if it doesn't exist yet"
+    log "Applying the performanceProfile since it doesn't exist yet"
     profile=$(oc get performanceprofile benchmark-performance-profile-0 --no-headers)
     if [ $? -ne 0 ] ; then
       log "PerformanceProfile not found, creating it"
@@ -167,7 +164,6 @@ deploy_operator() {
 deploy_workload() {
   log "Deploying oslat benchmark"
   envsubst < $CRD | oc apply -f -
-  #envsubst < $CRD > /tmp/oslat.yaml
   log "Sleeping for 60 seconds"
   sleep 60
 }
@@ -231,19 +227,6 @@ run_benchmark_comparison() {
 generate_csv() {
   log "Generating CSV"
   # tbd
-}
-
-init_cleanup() {
-  if [[ "${isBareMetal}" == "false" ]]; then
-    log "Cloning benchmark-operator from branch ${operator_branch} of ${operator_repo}"
-    rm -rf /tmp/benchmark-operator
-    git clone --single-branch --branch ${operator_branch} ${operator_repo} /tmp/benchmark-operator --depth 1
-    oc delete -f /tmp/benchmark-operator/deploy
-    oc delete -f /tmp/benchmark-operator/resources/crds/ripsaw_v1alpha1_ripsaw_crd.yaml
-    oc delete -f /tmp/benchmark-operator/resources/operator.yaml
-  else
-    log "BareMetal Instrastructure: Skipping cleanup"
-  fi
 }
 
 delete_benchmark() {

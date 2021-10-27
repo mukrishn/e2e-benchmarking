@@ -120,9 +120,7 @@ deploy_perf_profile() {
 	nic_numa+=($(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "cat /sys/class/net/"$nic"/device/numa_node"))
         # also get the CPU alignment
         numa_nodes_0=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node0' | cut -d ':' -f 2")
-	log "numa_nodes_0: $numa_nodes_0"
         numa_nodes_1=$(ssh -i /home/kni/.ssh/id_rsa -o StrictHostKeyChecking=no core@$w "lscpu | grep '^NUMA node1' | cut -d ':' -f 2" )
-	log "numa_nodes_1: $numa_nodes_1"
   done
 
   # check if the entries in nic_numa are all identical
@@ -398,19 +396,6 @@ generate_csv() {
   # tbd
 }
 
-init_cleanup() {
-  if [[ "${isBareMetal}" == "false" ]]; then
-    log "Cloning benchmark-operator from branch ${operator_branch} of ${operator_repo}"
-    rm -rf /tmp/benchmark-operator
-    git clone --single-branch --branch ${operator_branch} ${operator_repo} /tmp/benchmark-operator --depth 1
-    oc delete -f /tmp/benchmark-operator/deploy
-    oc delete -f /tmp/benchmark-operator/resources/crds/ripsaw_v1alpha1_ripsaw_crd.yaml
-    oc delete -f /tmp/benchmark-operator/resources/operator.yaml
-  else
-    log "BareMetal Infrastructure: Skipping cleanup"
-  fi
-}
-
 delete_benchmark() {
   oc delete benchmarks.ripsaw.cloudbulldozer.io/testpmd-benchmark -n benchmark-operator
 }
@@ -434,11 +419,11 @@ normal=$(tput sgr0)
 python3 -m pip install -r requirements.txt | grep -v 'already satisfied'
 check_cluster_present
 export_defaults
-#init_cleanup
+init_cleanup
 check_cluster_health
 deploy_perf_profile
 deploy_operator
-deploy_workload
+#deploy_workload
 wait_for_benchmark
 #delete_benchmark
 #cleanup_network
