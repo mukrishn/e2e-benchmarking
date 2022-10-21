@@ -65,7 +65,7 @@ run_workload() {
     mv ${KUBE_BURNER_DIR}/bin/amd64/kube-burner ${KUBE_DIR}/kube-burner
     rm -rf ${KUBE_BURNER_DIR}
   else
-    curl -sS -L ${KUBE_BURNER_URL} | tar -xzC ${KUBE_DIR}/ kube-burner
+    cp /tmp/kube-burner ${KUBE_DIR}/kube-burner
   fi
   CMD="timeout ${JOB_TIMEOUT} ${KUBE_DIR}/kube-burner init --uuid=${UUID} -c $(basename ${WORKLOAD_TEMPLATE}) --log-level=${LOG_LEVEL} --pause=${SCRAPE_PAUSE}"
   # When metrics or alerting are enabled we have to pass the prometheus URL to the cmd
