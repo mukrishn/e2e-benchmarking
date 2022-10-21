@@ -67,7 +67,7 @@ run_workload() {
   else
     curl -sS -L ${KUBE_BURNER_URL} | tar -xzC ${KUBE_DIR}/ kube-burner
   fi
-  CMD="timeout ${JOB_TIMEOUT} ${KUBE_DIR}/kube-burner init --uuid=${UUID} -c $(basename ${WORKLOAD_TEMPLATE}) --log-level=${LOG_LEVEL}"
+  CMD="timeout ${JOB_TIMEOUT} ${KUBE_DIR}/kube-burner init --uuid=${UUID} -c $(basename ${WORKLOAD_TEMPLATE}) --log-level=${LOG_LEVEL} --pause=${SCRAPE_PAUSE}"
   # When metrics or alerting are enabled we have to pass the prometheus URL to the cmd
   if [[ ${INDEXING} == "true" ]] || [[ ${PLATFORM_ALERTS} == "true" ]] ; then
     CMD+=" -u=${PROM_URL} -t ${PROM_TOKEN}"
