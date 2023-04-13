@@ -30,7 +30,7 @@ if [[ ${HYPERSHIFT} == "true" ]]; then
     export CLUSTER_NAME=${HOSTED_CLUSTER_NAME}
     export PLATFORM=$(oc get infrastructure cluster -o jsonpath='{.status.platformStatus.type}')
     export DAG_ID=$(oc version -o json | jq -r '.openshiftVersion')-$(oc get infrastructure cluster -o jsonpath='{.status.infrastructureName}') # setting a dynamic value
-    envsubst < ./grafana-agent.yaml | oc apply -f -
+    # envsubst < ./grafana-agent.yaml | oc apply -f -
   fi
   echo "Get all management worker nodes.."
   export Q_TIME=$(date +"%s")
