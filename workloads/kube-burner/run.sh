@@ -99,7 +99,7 @@ case ${WORKLOAD} in
   ;;
   cluster-density-ms)
     WORKLOAD_TEMPLATE=workloads/managed-services/cluster-density.yml
-    METRICS_PROFILE=${METRICS_PROFILE:-metrics-profiles/hypershift-metrics.yaml}
+    METRICS_PROFILE=${METRICS_PROFILE:-metrics-profiles/metrics.yaml}
     export TEST_JOB_ITERATIONS=${JOB_ITERATIONS:-75}
   ;; 
   networkpolicy-case1)
