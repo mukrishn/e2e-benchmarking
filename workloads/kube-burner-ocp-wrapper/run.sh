@@ -4,7 +4,10 @@ set -e
 
 ES_SERVER=${ES_SERVER=https://search-perfscale-dev-chmf5l4sh66lvxbnadi4bznl3a.us-west-2.es.amazonaws.com}
 LOG_LEVEL=${LOG_LEVEL:-info}
-KUBE_BURNER_VERSION=${KUBE_BURNER_VERSION:-1.7.12}
+if [ "$KUBE_BURNER_VERSION" = "default" ]; then
+    unset KUBE_BURNER_VERSION
+fi
+KUBE_BURNER_VERSION=${KUBE_BURNER_VERSION:-1.2.0}
 CHURN=${CHURN:-true}
 WORKLOAD=${WORKLOAD:?}
 QPS=${QPS:-20}
@@ -13,26 +16,10 @@ GC=${GC:-true}
 EXTRA_FLAGS=${EXTRA_FLAGS:-}
 UUID=${UUID:-$(uuidgen)}
 KUBE_DIR=${KUBE_DIR:-/tmp}
-MAX_RETRIES=3
-RETRY_DELAY=5
 
 download_binary(){
-  local retries=0
-  while [ $retries -lt $MAX_RETRIES ]; do
-    KUBE_BURNER_URL="https://github.com/cloud-bulldozer/kube-burner/releases/download/v${KUBE_BURNER_VERSION}/kube-burner-V${KUBE_BURNER_VERSION}-linux-x86_64.tar.gz"
-
-    if curl -sS -L "${KUBE_BURNER_URL}" | tar -xzC "${KUBE_DIR}/" kube-burner; then
-      echo "Download successful"
-      return 0
-    else
-      ((retries++))
-      echo "Download failed. Retrying (${retries}/$MAX_RETRIES) in $RETRY_DELAY seconds..."
-      sleep $RETRY_DELAY
-    fi
-  done
-
-  echo "Max retries reached. Unable to download the binary."
-  return 1
+  KUBE_BURNER_URL="https://github.com/kube-burner/kube-burner-ocp/releases/download/v${KUBE_BURNER_VERSION}/kube-burner-ocp-V${KUBE_BURNER_VERSION}-linux-x86_64.tar.gz"
+  curl --fail --retry 8 --retry-all-errors -sS -L "${KUBE_BURNER_URL}" | tar -xzC "${KUBE_DIR}/" kube-burner-ocp
 }
 
 hypershift(){
@@ -102,9 +89,9 @@ EOF
 
 download_binary
 if [[ ${WORKLOAD} =~ "index" ]]; then
-  cmd="${KUBE_DIR}/kube-burner index --uuid=${UUID} --start=$START_TIME --end=$((END_TIME+600)) --log-level ${LOG_LEVEL}"
+  cmd="${KUBE_DIR}/kube-burner-ocp index --uuid=${UUID} --start=$START_TIME --end=$((END_TIME+600)) --log-level ${LOG_LEVEL}"
 else
-  cmd="${KUBE_DIR}/kube-burner ocp ${WORKLOAD} --log-level=${LOG_LEVEL} --qps=${QPS} --burst=${BURST} --gc=${GC} --uuid ${UUID}"
+  cmd="${KUBE_DIR}/kube-burner-ocp ${WORKLOAD} --log-level=${LOG_LEVEL} --qps=${QPS} --burst=${BURST} --gc=${GC} --uuid ${UUID}"
   cmd+=" ${EXTRA_FLAGS}"
 fi
 if [[ ${WORKLOAD} =~ "cluster-density" ]]; then

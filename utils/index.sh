@@ -70,11 +70,84 @@ setup(){
     done
 }
 
+get_ipsec_config(){
+    ipsec=false
+    ipsecMode="Disabled"
+    if result=$(oc get networks.operator.openshift.io cluster -o=jsonpath='{.spec.defaultNetwork.ovnKubernetesConfig.ipsecConfig.mode}'); then
+        # If $result is empty, it is version older than 4.15
+        # We need to check a level above in the jsonpath
+        # If that level is not empty it means ipsec is enabled
+        if [[ -z $result ]]; then
+            if deprecatedresult=$(oc get networks.operator.openshift.io cluster -o=jsonpath='{.spec.defaultNetwork.ovnKubernetesConfig.ipsecConfig}'); then
+                if [[ ! -z $deprecatedresult ]]; then
+                    ipsec=true
+                    ipsecMode="Full"
+                fi
+            fi
+        else
+            # No matter if enabled and then disabled or disabled by default,
+            # this field is always shows Disabled when no IPSec
+            if [[ ! $result == *"Disabled"* ]]; then
+                ipsec=true
+                ipsecMode=$result
+            fi
+        fi
+    fi
+}
+
+get_fips_config(){
+    fips=false
+    if result=$(oc get cm cluster-config-v1 -n kube-system -o json | jq -r '.data."install-config"' | grep 'fips: ' | cut -d' ' -f2); then
+        fips=$result
+    fi
+}
+
+get_encryption_config(){
+    # Check the apiserver for the encryption config
+    # If encryption was never turned on, you won't find this config on the apiserver
+    encrypted=false
+    encryption=$(oc get apiserver -o=jsonpath='{.items[0].spec.encryption.type}' )
+    # Check for null or empty string
+    if [[ -n $encryption && $encryption != "null" ]]; then
+        # If the encryption has been Turned OFF at some point
+        # Then encryption type will be "identity"
+        # This means that it is not encrypted
+        if [[ $encryption != "identity" ]]; then
+            encrypted=true
+        fi
+    else
+        # Removing "identity" value of the encryption type
+        encryption=""
+    fi
+}
+
+get_publish_config(){
+    publish="External"
+    if result=$(oc get cm cluster-config-v1 -n kube-system -o json | jq -r '.data."install-config"' | grep 'publish' | cut -d' ' -f2 | xargs ); then
+        publish=$result
+    fi
+}
+
+get_architecture_config(){
+    compute_arch=""
+    if result=$(oc get cm cluster-config-v1 -n kube-system -o json | jq -r '.data."install-config"' | grep -A1 compute | grep architecture | cut -d' ' -f3 ); then
+        compute_arch=$result
+    fi
+
+    control_plane_arch=""
+    if result=$(oc get cm cluster-config-v1 -n kube-system -o json | jq -r '.data."install-config"' | grep -A1 controlPlane | grep architecture | cut -d' ' -f4 ); then
+        control_plane_arch=$result
+    fi
+}
+
 index_task(){
-    
+
     url=$1
     uuid_dir=/tmp/$UUID
     mkdir $uuid_dir
+
+    start_date_unix_timestamp=$(date "+%s" -d "${start_date}")
+    end_date_unix_timestamp=$(date "+%s" -d "${end_date}")
 
     json_data='{
         "ciSystem":"'$ci'",
@@ -102,12 +175,22 @@ index_task(){
         "jobDuration":"'$duration'",
         "startDate":"'"$start_date"'",
         "endDate":"'"$end_date"'",
-        "timestamp":"'"$start_date"'"
+        "startDateUnixTimestamp":"'"$start_date_unix_timestamp"'",
+        "endDateUnixTimestamp":"'"$end_date_unix_timestamp"'",
+        "timestamp":"'"$start_date"'",
+        "ipsec":"'"$ipsec"'",
+        "ipsecMode":"'"$ipsecMode"'",
+        "fips":"'"$fips"'",
+        "encrypted":"'"$encrypted"'",
+        "encryptionType":"'"$encryption"'",
+        "publish":"'"$publish"'",
+        "computeArch":"'"$compute_arch"'",
+        "controlPlaneArch":"'"$control_plane_arch"'"
         }'
     echo $json_data >> $uuid_dir/index_data.json
     echo "${json_data}"
     curl -sS --insecure -X POST -H "Content-Type:application/json" -H "Cache-Control:no-cache" -d "$json_data" "$url"
-    
+
 }
 
 set_duration(){
@@ -180,4 +263,9 @@ fi
 ES_INDEX=perf_scale_ci
 
 setup
+get_ipsec_config
+get_fips_config
+get_encryption_config
+get_publish_config
+get_architecture_config
 index_tasks
