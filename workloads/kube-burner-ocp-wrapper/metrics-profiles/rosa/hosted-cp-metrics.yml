@@ -30,3 +30,18 @@
 - query: cluster_version{type="completed", namespace=~".+{{.HCP_NAMESPACE}}"}
   metricName: clusterVersion
   instant: true
+
+
+# API server
+
+- query: irate(apiserver_request_total{verb="POST", resource="pods", subresource="binding",code="201",namespace=~".+{{.HCP_NAMESPACE}}"}[2m])
+  metricName: schedulingThroughput
+
+- query: histogram_quantile(0.99, sum(irate(apiserver_request_duration_seconds_bucket{job="kube-apiserver", verb=~"LIST|GET", subresource!~"log|exec|portforward|attach|proxy", namespace=~".+{{.HCP_NAMESPACE}}"}[2m])) by (le, resource, verb, scope))
+  metricName: readOnlyAPICallsLatency
+
+- query: histogram_quantile(0.99, sum(irate(apiserver_request_duration_seconds_bucket{job="kube-apiserver", verb=~"POST|PUT|DELETE|PATCH", subresource!~"log|exec|portforward|attach|proxy",namespace=~".+{{.HCP_NAMESPACE}}"}[2m])) by (le, resource, verb, scope))
+  metricName: mutatingAPICallsLatency
+
+- query: sum(irate(apiserver_request_total{job="kube-apiserver",verb!="WATCH",namespace=~".+{{.HCP_NAMESPACE}}"}[2m])) by (verb,resource,instance)
+  metricName: APIRequestRate
