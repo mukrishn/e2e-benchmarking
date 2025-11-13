@@ -53,10 +53,12 @@ hypershift(){
   else
     echo "Detected ${HC_PLATFORM} environment..."
 
-    MC_NAME=$(kubectl config view -o jsonpath='{.clusters[].name}' --kubeconfig=${MC_KUBECONFIG})
-    HC_NAME=$(oc get infrastructure cluster -o go-template --template='{{.status.etcdDiscoveryDomain}}' | awk -F. '{print$1}')
+    if [ -z "${MC_NAME}" ]; then
+      MC_NAME=$(kubectl config view -o jsonpath='{.clusters[].name}' --kubeconfig="${MC_KUBECONFIG}")
+    fi
+    HC_NAME=$(oc get infrastructure cluster -o go-template --template='{{.status.etcdDiscoveryDomain}}' | awk -F. '{print$2}')
     HCP_NAMESPACE=${HC_NAME}
-    QUERY="sum(kube_node_role{cluster=\"$MC_NAME\",role=\"worker\"})by(node)"
+    QUERY="sum(node_memory_MemTotal_bytes{cluster=\"$MC_NAME\",instance=~\".*user.*\"})by(instance)"
 
     if [[ -z ${AKS_PROM} ]] || [[ -z ${AZURE_PROM} ]] ; then
       echo "Azure/AKS prometheus inputs are missing, exiting.."
@@ -94,7 +96,7 @@ EOF
   echo "Get all management worker nodes, excludes infra, obo, workload"
   Q_NODES=""
   Q_STDOUT=$(curl -H "Authorization: Bearer ${MC_PROMETHEUS_TOKEN}" -k --silent --globoff  ${MC_PROMETHEUS}/api/v1/query?query=${QUERY}&time='$(date +"%s")')
-  for n in $(echo $Q_STDOUT | jq -r '.data.result[].metric.node'); do
+  for n in $(echo "$Q_STDOUT" | jq -r ".data.result[].metric.$([ \"$HC_PLATFORM\" = \"aws\" ] && echo node || echo instance)"); do
     if [[ ${Q_NODES} == "" ]]; then
       Q_NODES=${n}
     else
