@@ -404,7 +404,7 @@ if [[ -z $UUID ]]; then
     exit 0
 fi
 
-ES_INDEX=perf_scale_ci
+ES_INDEX=${ES_METADATA_INDEX:-perf_scale_ci}
 
 setup
 get_ipsec_config
