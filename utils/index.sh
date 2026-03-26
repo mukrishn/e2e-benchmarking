@@ -80,8 +80,20 @@ setup(){
     network_type=$(oc get network.config/cluster -o jsonpath='{.status.networkType}') || echo "Cluster Install Failed"
     platform=$(oc get infrastructure cluster -o jsonpath='{.status.platformStatus.type}') || echo "Cluster Install Failed"
     cluster_type=""
+    control_plane_topology=$(oc get infrastructure cluster -o jsonpath='{.status.controlPlaneTopology}') || true
     if [ "$platform" = "AWS" ]; then
         cluster_type=$(oc get infrastructure cluster -o jsonpath='{.status.platformStatus.aws.resourceTags[?(@.key=="red-hat-clustertype")].value}') || echo "Cluster Install Failed"
+        if [ "$cluster_type" = "rosa" ]; then
+            if [ "$control_plane_topology" = "External" ]; then
+                cluster_type="rosa-hcp"
+            fi
+        fi
+    elif [ "$platform" = "Azure" ]; then
+        if [ "$control_plane_topology" = "External" ]; then
+            cluster_type="aro-hcp"
+        else
+            cluster_type="aro"
+        fi
     fi
     if [ -z "$cluster_type" ]; then
         cluster_type="self-managed"
