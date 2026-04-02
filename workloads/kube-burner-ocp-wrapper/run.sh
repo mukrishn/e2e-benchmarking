@@ -46,7 +46,7 @@ hypershift(){
     echo "Fetching OBO endpoint"
     MC_OBO=http://$(oc --kubeconfig=${MC_KUBECONFIG} get route -n openshift-observability-operator prometheus-hypershift -o jsonpath="{.spec.host}")
     MC_PROMETHEUS=https://$(oc --kubeconfig=${MC_KUBECONFIG} get route -n openshift-monitoring prometheus-k8s -o jsonpath="{.spec.host}")
-    MC_PROMETHEUS_TOKEN=$(oc --kubeconfig=${MC_KUBECONFIG} sa new-token -n openshift-monitoring prometheus-k8s)
+    MC_PROMETHEUS_TOKEN=$(oc --kubeconfig=${MC_KUBECONFIG} create token -n openshift-monitoring prometheus-k8s)
     HC_PRODUCT="rosa"
   else
     echo "Detected ${HC_PLATFORM} environment..."
@@ -91,7 +91,7 @@ EOF
   HOSTED_PROMETHEUS=https://$(oc get route -n openshift-monitoring prometheus-k8s -o jsonpath="{.spec.host}")
 
   # Retry until HOSTED_PROMETHEUS_TOKEN is retrieved
-  until HOSTED_PROMETHEUS_TOKEN=$(oc sa new-token -n openshift-monitoring prometheus-k8s 2>/dev/null) && [[ -n "$HOSTED_PROMETHEUS_TOKEN" ]]; do
+  until HOSTED_PROMETHEUS_TOKEN=$(oc create token -n openshift-monitoring prometheus-k8s 2>/dev/null) && [[ -n "$HOSTED_PROMETHEUS_TOKEN" ]]; do
     echo "Waiting for HOSTED_PROMETHEUS_TOKEN..."
     sleep 30
   done
