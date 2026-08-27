@@ -102,5 +102,5 @@
 - query: histogram_quantile(0.99, sum(irate(apiserver_request_duration_seconds_bucket{verb=~"POST|PUT|DELETE|PATCH", subresource!~"log|exec|portforward|attach|proxy"}[2m])) by (le, resource, verb, scope)) > 0
   metricName: mutatingAPICallsLatency
 
-- query: sum(irate(apiserver_request_total{verb!="WATCH"}[2m])) by (verb,resource,instance) > 0
+- query: sum(irate(apiserver_request_total{verb!="WATCH"}[2m])) by (verb,resource,instance,code) > 0
   metricName: APIRequestRate

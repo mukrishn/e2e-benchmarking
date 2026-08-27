@@ -93,3 +93,172 @@
   metricName: mgmtClusterVersion
   instant: true  
 
+# Backup inventory & outcomes
+- query: sum(velero_backup_total{cluster="{{.MC_NAME}}"}) by (cluster)
+  metricName: veleroBackupTotal
+
+- query: sum(rate(velero_backup_attempt_total{cluster="{{.MC_NAME}}"}[2m])) by (cluster, schedule)
+  metricName: veleroBackupAttemptRate
+
+- query: sum(rate(velero_backup_success_total{cluster="{{.MC_NAME}}"}[2m])) by (cluster, schedule)
+  metricName: veleroBackupSuccessRate
+
+- query: sum(rate(velero_backup_partial_failure_total{cluster="{{.MC_NAME}}"}[2m])) by (cluster, schedule)
+  metricName: veleroBackupPartialFailureRate
+
+- query: sum(rate(velero_backup_failure_total{cluster="{{.MC_NAME}}"}[2m])) by (cluster, schedule)
+  metricName: veleroBackupFailureRate
+
+- query: sum(rate(velero_backup_validation_failure_total{cluster="{{.MC_NAME}}"}[2m])) by (cluster, schedule)
+  metricName: veleroBackupValidationFailureRate
+
+- query: sum(rate(velero_backup_warning_total{cluster="{{.MC_NAME}}"}[2m])) by (cluster, schedule)
+  metricName: veleroBackupWarningRate
+
+- query: sum(velero_backup_duration_seconds_sum{cluster="{{.MC_NAME}}"}) by (cluster, schedule)
+  metricName: veleroBackupDurationSecondsSum
+
+- query: sum(velero_backup_duration_seconds_count{cluster="{{.MC_NAME}}"}) by (cluster, schedule)
+  metricName: veleroBackupDurationSecondsCount
+
+- query: sum(velero_backup_duration_seconds_sum{cluster="{{.MC_NAME}}"}) by (cluster, schedule) / sum(velero_backup_duration_seconds_count{cluster="{{.MC_NAME}}"}) by (cluster, schedule)
+  metricName: veleroBackupDurationMeanSeconds
+
+- query: histogram_quantile(0.50, sum(increase(velero_backup_duration_seconds_bucket{cluster="{{.MC_NAME}}"}[1h])) by (le, cluster, schedule))
+  metricName: veleroBackupDurationP50Seconds
+
+- query: histogram_quantile(0.95, sum(increase(velero_backup_duration_seconds_bucket{cluster="{{.MC_NAME}}"}[1h])) by (le, cluster, schedule))
+  metricName: veleroBackupDurationP95Seconds
+
+- query: histogram_quantile(0.99, sum(increase(velero_backup_duration_seconds_bucket{cluster="{{.MC_NAME}}"}[1h])) by (le, cluster, schedule))
+  metricName: veleroBackupDurationP99Seconds
+
+- query: sum(increase(velero_backup_duration_seconds_count{cluster="{{.MC_NAME}}"}[1h])) by (cluster, schedule)
+  metricName: veleroBackupCompletionsPerHour
+
+# Backup size & items
+- query: sum(velero_backup_tarball_size_bytes{cluster="{{.MC_NAME}}"}) by (cluster, schedule)
+  metricName: veleroBackupTarballSizeBytes
+
+- query: sum(velero_backup_items_total{cluster="{{.MC_NAME}}"}) by (cluster, schedule)
+  metricName: veleroBackupItemsTotal
+
+- query: sum(velero_backup_items_errors{cluster="{{.MC_NAME}}"}) by (cluster, schedule)
+  metricName: veleroBackupItemsErrors
+
+# Backup deletion
+- query: sum(rate(velero_backup_deletion_attempt_total{cluster="{{.MC_NAME}}"}[2m])) by (cluster, schedule)
+  metricName: veleroBackupDeletionAttemptRate
+
+- query: sum(rate(velero_backup_deletion_success_total{cluster="{{.MC_NAME}}"}[2m])) by (cluster, schedule)
+  metricName: veleroBackupDeletionSuccessRate
+
+- query: sum(rate(velero_backup_deletion_failure_total{cluster="{{.MC_NAME}}"}[2m])) by (cluster, schedule)
+  metricName: veleroBackupDeletionFailureRate
+
+- query: sum(velero_backup_location_status_gauge{cluster="{{.MC_NAME}}"}) by (cluster)
+  metricName: veleroBackupLocationStatus
+
+- query: sum(velero_schedule_expected_interval_seconds{cluster="{{.MC_NAME}}"}) by (cluster, schedule)
+  metricName: veleroScheduleExpectedIntervalSeconds
+
+- query: sum(velerobackup_phase{cluster="{{.MC_NAME}}"} == 1) by (cluster, schedule, phase)
+  metricName: veleroBackupCRPhaseCount
+
+- query: count(velerobackup_phase{cluster="{{.MC_NAME}}", phase=~"New|Queued|ReadyToStart|InProgress|WaitingForPluginOperations|WaitingForPluginOperationsPartiallyFailed|Finalizing|FinalizingPartiallyFailed"} == 1) by (cluster, schedule)
+  metricName: veleroBackupCRInProgressCount
+
+- query: sum(velerobackup_phase{cluster="{{.MC_NAME}}", phase="Completed"} == 1) by (cluster, schedule)
+  metricName: veleroBackupCRCompletedCount
+
+- query: sum(velerobackup_phase{cluster="{{.MC_NAME}}", phase=~"Failed|PartiallyFailed|FailedValidation"} == 1) by (cluster, schedule)
+  metricName: veleroBackupCRFailedCount
+
+# Volume snapshots (native + CSI)
+- query: sum(rate(velero_volume_snapshot_attempt_total{cluster="{{.MC_NAME}}"}[2m])) by (cluster, schedule)
+  metricName: veleroVolumeSnapshotAttemptRate
+
+- query: sum(rate(velero_volume_snapshot_success_total{cluster="{{.MC_NAME}}"}[2m])) by (cluster, schedule)
+  metricName: veleroVolumeSnapshotSuccessRate
+
+- query: sum(rate(velero_volume_snapshot_failure_total{cluster="{{.MC_NAME}}"}[2m])) by (cluster, schedule)
+  metricName: veleroVolumeSnapshotFailureRate
+
+- query: sum(rate(velero_csi_snapshot_attempt_total{cluster="{{.MC_NAME}}"}[2m])) by (cluster, schedule)
+  metricName: veleroCsiSnapshotAttemptRate
+
+- query: sum(rate(velero_csi_snapshot_success_total{cluster="{{.MC_NAME}}"}[2m])) by (cluster, schedule)
+  metricName: veleroCsiSnapshotSuccessRate
+
+- query: sum(rate(velero_csi_snapshot_failure_total{cluster="{{.MC_NAME}}"}[2m])) by (cluster, schedule)
+  metricName: veleroCsiSnapshotFailureRate
+
+# Pod volume / data mover
+# enqueue/dequeue and data_* are labeled `node` only — not per-HC.
+- query: sum(rate(podVolume_pod_volume_backup_enqueue_count{cluster="{{.MC_NAME}}"}[2m])) by (cluster, node)
+  metricName: podVolumeBackupEnqueueRate
+
+- query: sum(rate(podVolume_pod_volume_backup_dequeue_count{cluster="{{.MC_NAME}}"}[2m])) by (cluster, node)
+  metricName: podVolumeBackupDequeueRate
+
+- query: sum(rate(podVolume_pod_volume_backup_enqueue_count{cluster="{{.MC_NAME}}"}[2m])) by (cluster, node) - sum(rate(podVolume_pod_volume_backup_dequeue_count{cluster="{{.MC_NAME}}"}[2m])) by (cluster, node)
+  metricName: podVolumeBackupQueueDeltaRate
+
+- query: histogram_quantile(0.50, sum(rate(podVolume_pod_volume_operation_latency_seconds_bucket{cluster="{{.MC_NAME}}"}[5m])) by (le, cluster, operation, backupName))
+  metricName: podVolumeOperationLatencyP50Seconds
+
+- query: histogram_quantile(0.99, sum(rate(podVolume_pod_volume_operation_latency_seconds_bucket{cluster="{{.MC_NAME}}"}[5m])) by (le, cluster, operation, backupName))
+  metricName: podVolumeOperationLatencyP99Seconds
+
+- query: sum(podVolume_pod_volume_operation_latency_seconds_gauge{cluster="{{.MC_NAME}}"}) by (cluster, operation, backupName)
+  metricName: podVolumeOperationLatencyGaugeSeconds
+
+- query: sum(rate(podVolume_data_upload_success_total{cluster="{{.MC_NAME}}"}[2m])) by (cluster, node)
+  metricName: podVolumeDataUploadSuccessRate
+
+- query: sum(rate(podVolume_data_upload_failure_total{cluster="{{.MC_NAME}}"}[2m])) by (cluster, node)
+  metricName: podVolumeDataUploadFailureRate
+
+- query: sum(rate(podVolume_data_upload_cancel_total{cluster="{{.MC_NAME}}"}[2m])) by (cluster, node)
+  metricName: podVolumeDataUploadCancelRate
+
+- query: sum(rate(podVolume_data_download_success_total{cluster="{{.MC_NAME}}"}[2m])) by (cluster, node)
+  metricName: podVolumeDataDownloadSuccessRate
+
+- query: sum(rate(podVolume_data_download_failure_total{cluster="{{.MC_NAME}}"}[2m])) by (cluster, node)
+  metricName: podVolumeDataDownloadFailureRate
+
+- query: sum(rate(podVolume_data_download_cancel_total{cluster="{{.MC_NAME}}"}[2m])) by (cluster, node)
+  metricName: podVolumeDataDownloadCancelRate
+
+# Container resources on MC (Velero/node-agent pods, not per-HC)
+- query: sum(rate(container_cpu_usage_seconds_total{cluster="{{.MC_NAME}}", namespace=~"velero|openshift-adp", container!="", container!="POD"}[2m])) by (cluster, pod, container, namespace, node)
+  metricName: mgmt-veleroContainerCPU
+
+- query: sum(container_memory_working_set_bytes{cluster="{{.MC_NAME}}", namespace=~"velero|openshift-adp", container!="", container!="POD"}) by (cluster, pod, container, namespace, node)
+  metricName: mgmt-veleroContainerMemory
+
+- query: sum(kube_pod_container_status_restarts_total{cluster="{{.MC_NAME}}", namespace=~"velero|openshift-adp"}) by (cluster, pod, container)
+  metricName: mgmt-veleroPodRestarts
+
+# CSI latency (kubelet; no schedule / HC label)
+- query: histogram_quantile(0.50, sum(rate(csi_operations_seconds_bucket{cluster="{{.MC_NAME}}"}[5m])) by (le, cluster, driver_name, method_name))
+  metricName: mgmt-csiOperationsP50Seconds
+
+- query: histogram_quantile(0.95, sum(rate(csi_operations_seconds_bucket{cluster="{{.MC_NAME}}"}[5m])) by (le, cluster, driver_name, method_name))
+  metricName: mgmt-csiOperationsP95Seconds
+
+- query: histogram_quantile(0.99, sum(rate(csi_operations_seconds_bucket{cluster="{{.MC_NAME}}"}[5m])) by (le, cluster, driver_name, method_name))
+  metricName: mgmt-csiOperationsP99Seconds
+
+- query: sum(rate(csi_operations_seconds_count{cluster="{{.MC_NAME}}"}[5m])) by (cluster, driver_name, method_name, grpc_status_code)
+  metricName: mgmt-csiOperationsRate
+
+- query: sum(rate(csi_operations_seconds_count{cluster="{{.MC_NAME}}", grpc_status_code!="OK"}[5m])) by (cluster, driver_name, method_name, grpc_status_code)
+  metricName: mgmt-csiOperationsErrorRate
+
+- query: histogram_quantile(0.99, sum(rate(csi_operations_seconds_bucket{cluster="{{.MC_NAME}}", method_name=~".*CreateSnapshot.*|.*DeleteSnapshot.*"}[5m])) by (le, cluster, driver_name, method_name))
+  metricName: mgmt-csiSnapshotOperationsP99Seconds
+
+- query: sum(rate(csi_operations_seconds_count{cluster="{{.MC_NAME}}", method_name=~".*CreateSnapshot.*|.*DeleteSnapshot.*"}[5m])) by (cluster, driver_name, method_name, grpc_status_code)
+  metricName: mgmt-csiSnapshotOperationsRate
